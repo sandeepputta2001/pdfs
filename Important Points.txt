@@ -1,0 +1,1738 @@
+Every process in Linux has 3 standard file descriptors:
+| FD | Name   | Description   |
+| -- | ------ | ------------- |
+| 0  | stdin  | Input         |
+| 1  | stdout | Normal output |
+| 2  | stderr | Error output  |
+
+reliability , integrity, consistency, data corruption, distributed coordination
+Idempotency is particularly important in distributed systems where network issues and retries are common.
+reliability , integrity, consistency, data corruption,
+Idempotency is particularly important in distributed systems where network issues and retries are common.
+Panic recovery
+Redis eviction.
+Redis race condtion and cold-cache case.
+N+1 Suprises.
+Zerolog.
+Database level advisory lock and Redis Redlock.
+Deduplication.
+
+reliability , integrity, consistency, data corruption,
+Idempotency is particularly important in distributed systems where network issues and retries are common.
+Panic recovery
+Redis eviction.
+Redis race condtion and cold-cache case.
+N+1 Suprises.
+Zerolog.
+Database level advisory lock and Redis Redlock.
+Deduplication.
+
+Middleware wraps a handler and produces a NEW handler
+
+var nil Type
+
+Redis is cold - 
+
+./migrations:/docker-entrypoint-initdb.d - migrations are applied automatically.
+
+ go build \
+    -ldflags="-s -w" \
+    -o /bin/server ./cmd/server -  This command builds your Go server binary with reduced size by stripping debug and symbol information, and outputs it to /bin/server
+
+
+.golangci.yml is NOT built into Go itself — it is specifically used by the tool golangci-lint, and its structure must follow that tool’s config format.
+
+go test
+Runs test files (*_test.go)
+Looks for functions like:
+func TestSomething(t *testing.T)
+
+./...
+👉 Means:
+Run tests in current directory + all subdirectories
+
+4. -count=1
+👉 Disables test caching
+By default:
+Go caches test results
+Problem:
+Tests may not re-run
+
+
+✅ Command 2 (coverage)
+go test -race -count=1 -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+🔸 -coverprofile=coverage.out
+👉 Generates coverage data file
+Tracks:
+Which lines of code executed
+Which not
+🔸 go tool cover
+👉 Built-in Go tool to visualize coverage
+🔸 -html=coverage.out
+👉 Converts coverage → HTML report
+🔸 Output:
+coverage.html
+Open in browser:
+Green → covered
+Red → not covered
+
+
+.DEFAULT_GOAL := build
+.PHONY: build run test
+👉 These are special built-in directives in Make
+
+Why @ is used?
+Example:
+@echo "Migrations are applied automatically"
+🔹 Without @
+echo "Migrations are applied automatically"
+Migrations are applied automatically
+👉 Command + output printed
+🔹 With @
+Migrations are applied automatically
+👉 Only output printed
+
+
+Where is Go cache?
+Check location:
+go env GOCACHE
+Default paths:
+Linux → ~/.cache/go-build
+macOS → ~/Library/Caches/go-build
+Windows → %LocalAppData%\go-build
+🔹 Why does Go cache test results?
+👉 To speed up repeated test runs
+If:
+Code unchanged
+Tests unchanged
+👉 Go reuses previous result instead of re-running
+
+More about .PHONY
+👉 Declares targets as commands, not files
+Why needed:
+Make skips execution if file with same name exists
+Example problem:
+touch test
+make test   # ❌ won't run
+Solution:
+.PHONY: test
+👉 Ensures it always runs
+
+-coverprofile=mycoverage.txt
+👉 coverage.out is just a common convention
+
+
+go env prints all Go environment variables (like paths, cache locations, OS/arch) used by the Go toolchain.
+
+
+1️⃣ idempotent=#
+👉 This is the PostgreSQL interactive SQL prompt
+Format:
+<database>=#
+Meaning:
+idempotent → current database name
+# → you are connected as a superuser (usually postgres)
+👉 If it was a normal user:
+idempotent=>
+
+psql without credentials works due to local trust/peer authentication inside container
+
+
+PSQL IMP COMMANDS : 
+
+\q - exit client conn to server.
+\dt - list tables in db
+\l - list all dbs in server.
+\d <table name> - describe table name
+\c <db_name> - connect to db.
+\du - 👉 Lists all users/roles with permissions
+PostgreSQL users are stored in pg_roles (cluster-wide : per instance not per db), and you can view them using \du or querying system catalogs.
+
+🔹 1. Network drivers
+👉 Control how containers communicate
+Docker Common drivers:
+bridge (default)
+Containers communicate within same host
+Used in most apps
+host
+Container uses host network directly
+No isolation, high performance
+overlay
+Multi-host networking (used in clusters)
+
+🔹 2. Volume drivers
+👉 Control how data is stored
+Common drivers:
+local (default)
+Stored on host machine
+Cloud drivers (e.g., EBS, NFS)
+Used in production
+Real-world backend example
+Dev → bridge + local volume
+Prod → overlay + cloud volume (EBS/NFS)
+
+
+
+
+sudo cd docker
+❌ Error:
+sudo: cd: command not found
+🔹 Why this happens
+👉 cd is a shell built-in command, not a standalone executable
+So:
+sudo can only run binaries (programs)
+cd exists inside shell (bash), not as a file
+🔹 How shell works (important concept)
+Shell (bash)
+ ├── built-ins → cd, echo, export
+ └── executables → ls, docker, go
+👉 sudo works only with executables
+
+In Redis CLI, responses are typed.
+| Output | Meaning              |
+| ------ | -------------------- |
+| 1      | success / exists     |
+| 0      | failure / not exists |
+| -1     | exists but no expiry |
+| -2     | not exists           |
+
+
+INDEX RULES: 
+| Index | Meaning       |
+| ----- | ------------- |
+| 0     | first element |
+| 1     | second        |
+| -1    | last          |
+| -2    | second last   |
+
+
+Lists
+👉 Ordered collection (duplicates allowed)
+Sets
+👉 Unordered + unique elements
+
+Notifications Supported Channels : email , sms , push
+
+Distributed = many machines coordinating to solve one problem
+
+...any
+🧠 Final Mental Model
+any → “I don’t care about type”
+... → “I don’t care how many arguments”
+...any → “Give me anything, as many as you want”
+
+
+❌ Unsafe type assertions
+v.(int)
+👉 Can panic
+✔ Safe:
+v, ok := v.(int)
+
+❌ Forgetting ...
+vals := []any{1, 2, 3}
+printAll(vals) // ❌ wrong
+✔ Correct:
+printAll(vals...)
+
+🧠 What is Viper?
+Viper is a configuration management library in Go.
+👉 It solves this core problem:
+“How do I manage configuration from multiple sources (files, env vars, defaults, flags) in a clean and flexible way?”
+⚙️ Core Concept of Viper
+Viper acts like a configuration aggregator + resolver.
+It merges values from multiple sources in a priority order:
+1. Explicit Set()        (highest priority)
+2. Environment variables
+3. Config file (YAML/JSON/TOML)
+4. Defaults              (lowest priority)
+
+-----------------------------------------------------------------------------------------------------DEFER vs RETURN-------------------------------------------------------------------------------------------------------------------------- 
+
+This is a very important concept in Go — and it’s often misunderstood. Let’s break it down clearly.
+
+---
+
+# 🧠 Core Rule (Remember This)
+
+> **`return` sets the return values first → then `defer` runs → then function actually returns**
+
+---
+
+# ⚙️ Execution Order
+
+When a function hits `return`:
+
+```text
+1. Evaluate return values
+2. Assign to named return variables (if any)
+3. Execute deferred functions (LIFO order)
+4. Finally return to caller
+```
+
+---
+
+# 🟢 Easy Example
+
+```go
+func example() int {
+    defer fmt.Println("defer executed")
+    return 10
+}
+```
+
+### Execution:
+
+```text
+return 10   → value decided
+defer runs  → prints "defer executed"
+function returns 10
+```
+
+👉 Output:
+
+```text
+defer executed
+```
+
+---
+
+# 🟡 Medium Example (Key Understanding)
+
+```go
+func example() int {
+    x := 10
+    defer func() {
+        x = x + 5
+    }()
+    return x
+}
+```
+
+### What happens?
+
+```text
+return x        → value = 10 (copied)
+defer runs      → x becomes 15
+function returns → 10 (NOT 15)
+```
+
+👉 Because return value is already copied
+
+---
+
+# 🔴 Advanced Example (Named Return)
+
+```go
+func example() (x int) {
+    x = 10
+    defer func() {
+        x = x + 5
+    }()
+    return
+}
+```
+
+### Execution:
+
+```text
+x = 10
+return        → assigns x = 10
+defer runs    → modifies x → x = 15
+return final value → 15
+```
+
+👉 Output: `15`
+
+---
+
+# 🔥 Key Insight
+
+### Difference comes from **named vs unnamed return**
+
+| Type           | Defer can modify return? |
+| -------------- | ------------------------ |
+| Unnamed return | ❌ No                     |
+| Named return   | ✅ Yes                    |
+
+---
+
+# ⚡ LIFO Order of defer
+
+```go
+func main() {
+    defer fmt.Println("1")
+    defer fmt.Println("2")
+    defer fmt.Println("3")
+}
+```
+
+👉 Output:
+
+```text
+3
+2
+1
+```
+
+👉 Stack behavior (**Last In First Out**)
+
+---
+
+# 🧪 Real-World Example (VERY IMPORTANT)
+
+## Database Connection
+
+```go
+func getData() (err error) {
+    conn := openDB()
+    defer conn.Close()
+
+    if somethingFails {
+        return errors.New("failed")
+    }
+
+    return nil
+}
+```
+
+👉 Even if return happens early:
+
+* `defer conn.Close()` **always runs**
+
+---
+
+## Logging with defer modifying return
+
+```go
+func process() (err error) {
+    defer func() {
+        if err != nil {
+            log.Println("error occurred:", err)
+        }
+    }()
+
+    err = errors.New("something broke")
+    return
+}
+```
+
+👉 Defer reads/modifies final return value
+
+---
+
+# 🚨 Tricky Case (VERY COMMON BUG)
+
+```go
+func example() int {
+    defer func() {
+        fmt.Println("defer:", recover())
+    }()
+    
+    panic("error")
+}
+```
+
+👉 `defer` still runs during panic
+
+---
+
+# 🧠 Easy → Medium → Advanced Summary
+
+---
+
+## 🟢 Easy
+
+* `defer` runs **after return is triggered**
+
+---
+
+## 🟡 Medium
+
+* Return value is computed **before defer runs**
+
+---
+
+## 🔴 Advanced
+
+* Named return variables can be **modified by defer**
+* Defer runs:
+
+  * on return
+  * on panic
+
+---
+
+# ⚡ Deep Internal Understanding
+
+Go compiler transforms:
+
+```go
+return x
+```
+
+Into something like:
+
+```go
+temp = x
+run defers
+return temp
+```
+
+For named return:
+
+```go
+x = value
+run defers (can modify x)
+return x
+```
+
+---
+
+# 🧪 High-Value Practice Scenarios
+
+---
+
+### 🔹 Predict Output
+
+```go
+func test() (x int) {
+    defer func() {
+        x++
+    }()
+    return 5
+}
+```
+
+👉 Answer: `6`
+
+---
+
+### 🔹 Another One
+
+```go
+func test() int {
+    x := 5
+    defer func() {
+        x++
+    }()
+    return x
+}
+```
+
+👉 Answer: `5`
+
+---
+
+# 🧾 Final Takeaway
+
+👉 Always remember:
+
+* `return` ≠ immediate exit
+* It’s a **two-phase process**
+
+```text
+SET return values → RUN defer → EXIT
+```
+
+---
+
+--------------------------------------------------------------------------------------------------------------- DEFER vs RETURN---------------------------------------------------------------------------------------------------------------
+
+var _ domain.RefundRepository = (*postgresRefundRepo)(nil) - This is a compile-time interface implementation check.
+
+type conversion vs type assertion
+
+Idempotency : 
+Step 2: Deterministic Key
+key = sha256("u1:ord_123:payment")
+⚠️ Where People Go Wrong
+❌ Bad Design
+key = uuid()  // random every time
+→ no guarantee of same operation
+❌ Weak Deterministic Key
+key = hash(user_id)
+→ same user → all requests collide ❌
+❌ Ignoring business uniqueness
+Only relying on idempotency key:
+→ dangerous in distributed systems
+💡 Best Practice Pattern
+idempotency_key = hash(
+    user_id +
+    order_id +
+    operation_type
+)
+AND ALSO:
+UNIQUE(order_id)
+Even if:
+Hash collides (rare)
+Client sends wrong key
+Distributed retries happen
+👉 System should still be correct because of:
+DB constraints
+business logic deduplication
+
+
+🧠 Go Toolchain (short & clear)
+Go toolchain = the set of tools that build, run, and manage Go programs
+🔧 Main tools in Go toolchain
+go build → compiles code into binary
+go run → compile + run directly
+go test → run tests
+go mod → manage dependencies
+go fmt → format code
+go vet → static analysis (find bugs)
+Go toolchain = everything behind the go command that turns your code into a running program
+
+golang-migrate - migrations common tool.
+
+pgcrypto extension in psql - 
+
+gobased migrations 
+in-flight requests - 
+exit code - 
+
+
+-------------------------------------------------------------------------------------------------SIGINT and SIGTERM handling in gocode ------------------------------------------------------------------------------------------------------
+Great question. Let me explain signals deeply first, then show every real-world scenario.
+
+What are signals?
+Signals are the OS's way of sending a notification to a running process. They're asynchronous — the OS interrupts your process at any point and delivers the signal. Your process can either handle it, ignore it, or let the default action happen.
+
+OS kernel
+   │
+   │  "hey process 1234, here's a SIGTERM"
+   ▼
+your Go process
+   │
+   ├── if handled → runs your signal handler code
+   ├── if ignored → nothing happens
+   └── if default → OS kills the process immediately
+SIGINT vs SIGTERM — what's the difference
+SIGINT (Signal Interrupt, number 2)
+
+Sent when you press Ctrl+C in a terminal
+Means: "the user wants to interrupt this process"
+Default action: terminate the process
+SIGTERM (Signal Terminate, number 15)
+
+Sent programmatically by other processes or the OS
+Means: "please shut down gracefully"
+Default action: terminate the process
+This is the polite kill — it gives your process a chance to clean up
+SIGKILL (number 9) — not handled here, and cannot be:
+
+Sent by kill -9
+OS kills the process immediately, no handler possible
+Your code never runs
+Every real-world scenario where these fire
+SIGINT scenarios
+1. Developer presses Ctrl+C during local development
+
+$ make run
+# server running...
+^C          ← Ctrl+C sends SIGINT to the foreground process
+2. Running in terminal and terminal closes
+
+$ ./bin/server
+# user closes the terminal window → SIGINT sent to all foreground processes
+SIGTERM scenarios
+3. docker stop — the most common production scenario
+
+docker stop my-container
+Docker sends SIGTERM to PID 1 inside the container. Waits 10 seconds (default). If process hasn't exited, sends SIGKILL. This is why graceful shutdown must complete within that window.
+
+docker stop
+    │
+    ▼
+SIGTERM → your server (10s window)
+    │
+    ├── handled → drain requests, close DB, exit cleanly ✓
+    └── not handled → default kills immediately, in-flight requests die ✗
+    
+    (after 10s regardless)
+    ▼
+SIGKILL → process dies no matter what
+4. Kubernetes pod termination — the most critical production scenario
+
+kubectl delete pod / rolling deploy / node drain / scale down
+    │
+    ▼
+Kubernetes sends SIGTERM to the container
+    │
+    ├── terminationGracePeriodSeconds (default 30s) starts
+    │
+    ├── your server: drain in-flight requests, close connections
+    │
+    └── after grace period → SIGKILL
+Without handling SIGTERM in Kubernetes, every rolling deployment drops in-flight requests. Users see 502 errors during deploys.
+
+5. systemd service stop
+
+systemctl stop myservice
+# or
+systemctl restart myservice
+systemd sends SIGTERM, waits TimeoutStopSec (default 90s), then SIGKILL.
+
+6. kill <pid> from another process or script
+
+kill 1234        # sends SIGTERM (default)
+kill -15 1234    # explicit SIGTERM
+kill -2 1234     # explicit SIGINT
+Used in deployment scripts, process managers, health check scripts.
+
+7. Cloud provider instance shutdown / spot instance termination AWS Spot instances, GCP preemptible VMs — when the cloud reclaims the instance, it sends SIGTERM to all processes before shutting down the VM. You typically get 2 minutes to clean up.
+
+8. docker-compose down
+
+docker compose down
+Sends SIGTERM to all running containers.
+
+What happens WITHOUT the signal handler
+// no signal handling — default OS behavior
+func main() {
+    srv.ListenAndServe()
+}
+Scenario: docker stop (rolling deploy)
+
+User A is in the middle of POST /v1/payments
+    │
+    ├── request received
+    ├── idempotency key claimed in Redis
+    ├── payment being written to Postgres...
+    │
+SIGTERM arrives → OS kills process immediately
+    │
+    ├── Postgres write: incomplete transaction → rolled back ✓ (Postgres handles this)
+    ├── Redis key: still marked "__in_flight__" → stuck for 24h ✗
+    ├── HTTP response: connection reset → client gets network error ✗
+    └── client retries with same idempotency key → gets 409 Conflict for 24h ✗
+For an idempotency service specifically, abrupt shutdown is especially damaging because in-flight markers get stuck in Redis.
+
+What happens WITH the signal handler
+quit := make(chan os.Signal, 1)
+signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+<-quit  // wait for signal
+
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+defer cancel()
+
+srv.Shutdown(shutdownCtx)  // ← this is the key
+srv.Shutdown() does three things:
+
+Stops accepting new connections immediately
+Waits for all in-flight requests to complete (up to 15s)
+Then closes the server
+SIGTERM arrives
+    │
+    ▼
+srv.Shutdown() called
+    │
+    ├── new requests: rejected (load balancer gets 503, retries elsewhere)
+    │
+    ├── User A's payment request: allowed to finish
+    │   ├── Postgres write completes ✓
+    │   ├── Redis key saved with response ✓
+    │   └── HTTP 201 returned to client ✓
+    │
+    └── all requests done → server exits cleanly ✓
+The 15-second timeout — why it matters
+context.WithTimeout(context.Background(), 15*time.Second)
+This is a safety net. If a request is stuck (e.g. waiting on a slow DB query), you don't want to wait forever. After 15 seconds, shutdown forces through regardless.
+
+In Kubernetes the default terminationGracePeriodSeconds is 30s. Your 15s shutdown window fits comfortably inside that, ensuring the process exits before Kubernetes sends SIGKILL.
+
+t=0s   SIGTERM received
+t=0s   stop accepting new requests
+t=1s   most in-flight requests complete
+t=15s  forced shutdown if anything still running
+t=15s  process exits with code 0
+
+(Kubernetes would SIGKILL at t=30s — we're well within the window)
+Summary
+Signal	Who sends it	When
+SIGINT	Terminal / user	Ctrl+C, terminal close
+SIGTERM	Docker, Kubernetes, systemd, kill, cloud	Container stop, deploy, scale down, restart
+SIGKILL	OS only	After grace period, kill -9 — unhandleable
+Without handling these, every deployment, every container restart, every scale-down event risks dropped requests, stuck idempotency keys, and corrupted state. For a payment/idempotency service, that's not acceptable — which is exactly why this code exists.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Feature 	                   go get	                   go install 
+Core Purpose	Managing dependencies for a project.	Installing executables (binaries).
+Files Modified	Updates go.mod and go.sum.	Does not modify go.mod.
+Artifact Output	Downloads source code to the Module Cache.	Places an executable in $GOBIN or $GOPATH/bin.
+Common Use Case	Adding a library like a router or DB driver.	Installing a CLI tool like a linter or generator.
+
+
+When to use:
+panic: unexpected internal failure, maybe recoverable
+log.Fatal: startup/config failure where app must stop
+🔥 panic
+Used when program hits an unexpected error and cannot continue normally.
+Unwinds the stack, runs defer functions, and can be recovered.
+☠️ log.Fatal
+Logs the message and immediately calls os.Exit(1)
+Important:
+recover() cannot catch log.Fatal
+defer functions do NOT run
+Program exits immediately
+
+
+🚀 Docker Container States
+
+A container can be in one of these:
+
+State	Meaning
+Created	Created but not started
+Running	Currently executing
+Paused	Suspended (CPU frozen)
+Exited	Stopped
+Restarting	Restart loop
+Dead	Failed to clean up
+Removing	Being deleted
+
+
+3️⃣ git rm --cached .env
+Removes file from Git tracking but keeps it locally.
+Why?
+Stop tracking sensitive files while keeping local copy.
+4️⃣ git filter-repo --path ... --invert-paths
+Rewrites Git history to permanently remove files from all commits.
+Why?
+Remove secrets from Git history (not just latest commit).
+
+
+5️⃣ pgcrypto
+A PostgreSQL extension providing:
+Hashing (e.g. digest())
+Encryption
+UUID generation
+Problem solved:
+Enables secure cryptographic operations inside DB.
+
+6️⃣ What are database drivers? What problem do they solve?
+Drivers translate your code into the database protocol.
+Example:
+Go app → Driver → DB protocol → Database
+Why needed?
+Databases speak binary protocols.
+Drivers abstract network, encoding, and protocol details.
+Example in Go
+lib/pq → PostgreSQL
+pgx → PostgreSQL (high performance)
+mysql → MySQL
+Problem solved:
+App doesn’t need to know low-level DB protocol.
+
+7️⃣ File embedding in Go
+Go lets you embed files into the binary at compile time using embed.
+//go:embed migrations/*
+var files embed.FS
+Why useful?
+No need for external files in production.
+Deploy single binary with all assets inside.
+
+8️⃣ What is Data Corruption? How can it happen?
+Data corruption = stored data becomes incorrect or unreadable.
+
+9️⃣ What are Adapters?
+Adapters allow two incompatible systems to work together.
+Example:
+pgxpool.Pool → adapter → *sql.DB
+Why?
+Library A expects type X
+You have type Y
+Adapter bridges the gap
+
+🔟 What is iofs in migrations?
+iofs allows migration tools to read migration files from an embedded filesystem instead of disk.
+Example:
+src, _ := iofs.New(migrationFiles, "sql")
+Why important?
+Migration files compiled into binary
+No need to ship separate .sql files
+
+
+The ip addr command in Linux shows all network interfaces on your machine, along with their IP addresses, states, and related metadata.
+Think of it as:
+“Show me all network cards and their addresses.”
+🧠 What problem does it solve?
+It answers:
+What is my machine’s IP?
+Which network interfaces are up?
+What networks am I connected to?
+What IPs can other machines use to reach me?
+
+
+In Go, func init() is a special, predefined function used for package-level initialization. It runs automatically before any other code in the package, including the main function. 
+DigitalOcean
+DigitalOcean
+ +3
+Key Characteristics
+Automatic Execution: You never call init() explicitly; the Go runtime invokes it as soon as the package is initialized.
+No Parameters or Returns: It takes no arguments and returns no values.
+Multiple Definitions: Unlike main, you can have multiple init() functions within a single file or across different files in the same package.
+Guaranteed Execution: It runs exactly once per package, regardless of how many times that package is imported.
+
+lightweight - 
+
+🧠 Single Point of Failure (SPOF)
+A Single Point of Failure is any part of a system that, if it fails, causes the entire system to fail.
+
+📐 Back-of-the-Envelope Estimation
+This is a rough, fast estimation technique used to estimate system capacity and resources without exact data.
+🧠 What it answers
+How many servers do we need?
+How much storage is required?
+How much traffic can we handle?
+
+ARN (Amazon Resource Name)
+🧠 What is this?
+"arn:aws:s3:::my-media-bucket"
+"s3:PutObject"
+This is part of an IAM policy statement in Amazon Web Services.
+It defines:
+Which resource you can access → arn:aws:s3:::my-media-bucket
+What action you can perform → s3:PutObject
+🧱 ARN (Amazon Resource Name) Explained
+ARN format:
+arn:partition:service:region:account-id:resource
+For your example:
+arn:aws:s3:::my-media-bucket
+
+🧠 Short answer
+SDK = Build with it
+Plugin = Extend something with it
+Neither is a full standalone application by itself.
+🧱 What is an SDK?
+SDK = Software Development Kit
+It’s a toolkit for developers to build applications for a platform, service, or API.
+An SDK usually includes:
+Libraries / APIs
+Helper functions
+Client wrappers
+Documentation
+Sometimes tools & CLIs
+🟢 Example (Simple)
+If you want to interact with cloud storage, instead of manually calling HTTP APIs, you use an SDK:
+client := s3.NewFromConfig(cfg)
+client.PutObject(...)
+Here:
+SDK handles auth
+SDK handles retries
+SDK formats requests
+🧠 What problem does an SDK solve?
+Without SDK:
+Build HTTP request
+Sign request
+Handle retries
+Parse responses
+Handle errors
+With SDK:
+Call function
+Done
+
+🧩 What is a Plugin?
+A plugin extends the functionality of an existing application.
+You don’t build your whole app with it — you plug it into another system.
+🟢 Simple example
+A plugin might:
+Add a new feature to an editor
+Add a new database driver
+Add a new authentication method
+🧠 What problem does a plugin solve?
+Extensibility without modifying core application code
+Instead of changing the main app:
+You load plugins dynamically
+Add features at runtime
+
+----------------------------------------------------------------------------------------------------------------------------
+In Amazon Web Services IAM:
+
+Permission = What you are allowed to do
+Policy = A document that groups permissions
+Role = A temporary identity you can assume that has policies attached
+🔐 Permission (smallest unit)
+
+A permission is basically:
+
+Action + Resource + Effect
+
+Example:
+
+Allow s3:PutObject on bucket X
+📜 Policy (collection of permissions)
+
+A policy is a JSON document that defines permissions.
+
+Example policy
+{
+  "Effect": "Allow",
+  "Action": "s3:PutObject",
+  "Resource": "arn:aws:s3:::my-bucket/*"
+}
+
+This policy:
+
+Allows uploading objects
+Only to that bucket
+
+Policies can be:
+
+Attached to users
+Attached to roles
+Attached to groups
+🧑‍🚀 IAM Role (identity you assume)
+
+A role is not a person.
+A role is a temporary identity with permissions.
+
+A role:
+
+Has policies attached
+Can be assumed by:
+Servers
+Applications
+Other AWS services
+🧠 Difference summary
+Thing	What it is
+Permission	One allowed action
+Policy	Collection of permissions
+Role	Identity with policies
+🧱 How they work together
+Role → has Policy → contains Permissions
+🚫 Problem with access keys
+
+This:
+
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+
+means:
+
+Long-lived credentials
+Must be stored securely
+Can be leaked
+Must be rotated
+
+This is risky and not recommended in modern setups.
+
+✅ Better approach: Use IAM Role (no keys)
+How it works (conceptually)
+
+Instead of:
+
+App → uses access key
+
+Do:
+
+App → assumes role → gets temporary credentials
+
+
+------------------------------------------------------------------------------------------------
+
+In Amazon Web Services authorization, a permission is defined by three things:
+
+Effect + Action + Resource (+ optional Condition)
+
+And Resource is identified by an ARN.
+
+🧱 1. Effect — Should it be allowed or denied?
+
+Effect answers:
+
+Is this action allowed or blocked?
+
+Only two values exist:
+
+Allow
+Deny
+Example
+{
+  "Effect": "Allow"
+}
+🧠 Important rule (critical)
+
+Explicit Deny always wins over Allow.
+
+If a user has:
+
+one policy allowing
+another denying
+
+👉 Access is denied
+
+🛠️ 2. Action — What can be done?
+
+Action specifies which operation is being attempted.
+
+Format:
+
+service:operation
+Examples
+s3:PutObject
+s3:GetObject
+ec2:StartInstances
+iam:CreateUser
+🧠 Think of Action as a verb
+Create
+Read
+Update
+Delete
+List
+Invoke
+Example in policy
+"Action": "s3:PutObject"
+🎯 3. Resource — What is it being done on?
+
+This defines which object/service the action applies to.
+
+Resources are written as ARNs.
+
+🔍 ARN (Amazon Resource Name) — Deep Breakdown
+
+General format:
+
+arn:partition:service:region:account-id:resource
+🔹 arn
+
+Literal prefix that identifies this as an ARN.
+
+🔹 partition
+
+Which AWS partition you’re in.
+
+Common values:
+
+aws → standard AWS regions
+aws-cn → China regions
+aws-us-gov → GovCloud
+🔹 service
+
+Which AWS service this resource belongs to.
+
+Examples:
+
+s3
+ec2
+iam
+lambda
+🔹 region
+
+Region where resource exists.
+
+Examples:
+
+us-east-1
+ap-south-1
+
+Some services (like S3) are global, so region may be empty.
+
+🔹 account-id
+
+Your AWS account number.
+
+Example:
+
+123456789012
+
+Not always required (for global resources like S3 buckets).
+
+🔹 resource
+
+The actual thing being accessed.
+
+Examples:
+
+bucket-name
+instance/i-123456
+function:my-lambda
+user/admin
+🧩 Putting ARN together
+
+Example:
+
+arn:aws:s3:::my-media-bucket
+
+Breakdown:
+
+Part	Meaning
+arn	ARN prefix
+aws	partition
+s3	service
+(empty)	region
+(empty)	account
+my-media-bucket	resource
+
+Another example:
+
+arn:aws:ec2:us-east-1:123456789012:instance/i-abc123
+
+Breakdown:
+
+Service: EC2
+Region: us-east-1
+Account: 123456789012
+Resource: EC2 instance
+🧠 Relationship between all three
+Effect → Should this be allowed?
+Action → What is being done?
+Resource → What is it being done to?
+
+Together:
+
+{
+  "Effect": "Allow",
+  "Action": "s3:PutObject",
+  "Resource": "arn:aws:s3:::my-media-bucket/*"
+}
+
+Meaning:
+
+Allow uploading objects to this bucket.
+
+⚖️ Detailed Differences
+Concept	What it represents
+Effect	Decision (Allow/Deny)
+Action	Operation (verb)
+Resource	Target (noun)
+ARN	Identifier for resource
+
+
+-------------------------------------------------------
+
+🔑 Core idea
+
+A file is just a sequence of bytes, and you interact with it using a cursor (pointer).
+
+📍 1. Current Position (File Cursor)
+
+This is:
+
+“Where the next read/write will happen”
+
+Think of it like a cursor in a text editor.
+
+🟢 Example
+
+File content:
+
+HelloWorld
+
+Cursor at start:
+
+^HelloWorld
+
+After reading 5 bytes:
+
+Hello^World
+📏 2. Offset
+
+Offset = distance (in bytes) from a reference point
+
+Usually:
+
+From beginning of file (most common)
+Example
+HelloWorld
+0123456789  (index = offset)
+H → offset 0
+W → offset 5
+🔄 3. Seek
+
+Seek means:
+
+Move the file cursor to a specific position
+
+In Go:
+
+file.Seek(offset, whence)
+📌 4. Whence (reference point for seek)
+
+Three types:
+
+Constant	Meaning
+0 (io.SeekStart)	from beginning
+1 (io.SeekCurrent)	from current position
+2 (io.SeekEnd)	from end
+🧪 Example
+file.Seek(5, io.SeekStart)
+
+Move cursor to offset 5.
+
+file.Seek(-2, io.SeekEnd)
+Move 2 bytes before end.
+
+
+-------------------------------------
+
+🌍 Partition vs Region
+🔹 Partition
+
+Partition = global grouping of AWS infrastructure
+
+Examples:
+
+aws → normal AWS
+aws-cn → China
+aws-us-gov → GovCloud
+
+👉 Rarely changes for most developers.
+
+🔹 Region
+
+Region = physical geographic location
+
+Examples:
+
+us-east-1
+ap-south-1 (Mumbai)
+🧠 Difference
+Partition	Region
+Global boundary	Geographic location
+Few exist	Many exist
+Example: aws	Example: ap-south-1
+🏗️ Service vs Resource
+🔹 Service
+
+Service = AWS product
+
+Examples:
+
+Amazon S3 → storage
+Amazon EC2 → compute
+AWS Lambda → serverless
+🔹 Resource
+
+Resource = actual entity inside a service
+
+Examples:
+
+Service	Resource
+S3	bucket, object
+EC2	instance
+Lambda	function
+
+-----------------------------------------------------
+
+
+🔥 1. panic
+🧠 What is it?
+
+A runtime error that stops normal execution and starts unwinding the stack.
+
+🧪 Example
+func main() {
+    panic("something went wrong")
+}
+
+Output:
+
+panic: something went wrong
+🧠 What happens internally
+panic occurs
+   ↓
+current function stops
+   ↓
+stack unwinds (calls defer)
+   ↓
+program crashes (if not recovered)
+🔁 With defer
+func main() {
+    defer fmt.Println("cleanup")
+    panic("error")
+}
+
+Output:
+
+cleanup
+panic: error
+
+👉 defer still runs.
+
+🛟 2. recover (Recoverable)
+🧠 What is it?
+
+A function that catches a panic and prevents crash.
+
+⚠️ Rule
+
+recover() only works inside defer
+
+🧪 Example
+func main() {
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Println("Recovered:", r)
+        }
+    }()
+
+    panic("boom")
+}
+
+Output:
+
+Recovered: boom
+
+👉 Program continues.
+
+🧠 Use case
+HTTP servers (don’t crash whole server)
+Worker systems
+Background jobs
+💀 3. fatal (log.Fatal)
+
+From Go’s log package.
+
+🧠 What is it?
+
+Logs message and immediately exits the program
+
+🧪 Example
+log.Fatal("something failed")
+
+Output:
+
+something failed
+
+Then program exits.
+
+⚠️ Important behavior
+Calls os.Exit(1)
+No defer runs
+Cannot be recovered
+⚖️ Key Differences (VERY IMPORTANT)
+Feature	panic	recover	fatal
+Stops execution	Yes	No (handles panic)	Yes
+Runs defer	Yes	Yes	❌ No
+Can be caught	Yes	—	❌ No
+Use case	unexpected error	handling panic	unrecoverable exit
+Stack unwinding	Yes	Stops unwinding	❌ No
+
+
+---------------
+
+
+MaxBytesReader is similar to io.LimitReader but is intended for limiting the size of incoming request bodies. In contrast to io.LimitReader, MaxBytesReader's result is a ReadCloser, returns a non-nil error of type [*MaxBytesError] for a Read beyond the limit, and closes the underlying reader when its Close method is called.
+MaxBytesReader prevents clients from accidentally or maliciously sending a large request and wasting server resources. If possible, it tells the [ResponseWriter] to close the connection after the limit has been reached.
+
+const http.StatusUnsupportedMediaType untyped int = 415
+
+to manyrequest - 429 , unprocessable entity - 422
+
+-------------------------------------------------------------------
+
+🔑 What is a “sequence of bytes”?
+
+Everything in a computer (files, network data, images) is stored/transmitted as a sequence of bytes.
+
+A byte = 8 bits
+
+🧾 How it is represented
+1️⃣ Binary (lowest level)
+01001000 01100101 01101100 01101100 01101111
+
+Each 8 bits = 1 byte
+
+2️⃣ Decimal / Numeric
+72 101 108 108 111
+3️⃣ Hexadecimal (very common)
+48 65 6C 6C 6F
+4️⃣ String (human-readable)
+Hello
+
+👉 All represent the same data.
+
+🧠 Example mapping
+Character	ASCII	Hex	Binary
+H	72	48	01001000
+e	101	65	01100101
+
+
+-----------------------------------------------------
+
+Alive
+🔑 What is TCP Keep-Alive?
+
+A mechanism to check if a TCP connection is still alive even when no data is being sent.
+
+8 bytes → 16 hex characters
+
+
+---------------------------------------------
+
+🧠 What is a MIME Header?
+
+MIME = Multipurpose Internet Mail Extensions
+
+A MIME header tells:
+
+what kind of data is being sent and how to interpret it
+
+Originally for email, now used everywhere:
+
+HTTP (APIs, browsers)
+file uploads
+multipart forms
+🧾 Core idea
+Metadata about the content (type, encoding, boundaries)
+🔑 Most important MIME headers
+1️⃣ Content-Type (MOST IMPORTANT)
+
+Tells what the data is
+
+Examples:
+Content-Type: application/json
+Content-Type: text/plain
+Content-Type: image/png
+Content-Type: multipart/form-data
+🧠 Example
+POST /api HTTP/1.1
+Content-Type: application/json
+
+{"name": "sandeep"}
+
+👉 Server knows to parse JSON.
+
+2️⃣ Content-Encoding
+
+Tells how data is compressed
+
+Content-Encoding: gzip
+Content-Encoding: br
+3️⃣ Content-Disposition
+
+Tells how to handle content
+
+Content-Disposition: attachment; filename="file.pdf"
+
+👉 Browser downloads file
+
+4️⃣ Content-Length
+Content-Length: 348
+
+👉 Size of body in bytes
+
+🧩 Special: multipart/form-data (VERY IMPORTANT)
+
+Used in:
+
+file uploads
+form submissions
+
+1️⃣ API request
+Content-Type: application/json
+2️⃣ File upload
+Content-Type: multipart/form-data
+3️⃣ File download
+Content-Disposition: attachment
+
+
+🧠 Part 1: Content-Disposition
+
+You wrote:
+
+w.Header().Set("Content-Disposition", "attachment; filename=\""+key+"\"")
+🔑 What it means
+
+Tell the browser how to handle the response body
+
+🧾 Breakdown
+Content-Disposition: attachment; filename="file.txt"
+Part	Meaning
+attachment	force download
+filename	suggested file name
+🧪 Behavior
+Without header:
+Browser tries to display content
+With header:
+w.Header().Set("Content-Disposition", "attachment; filename=\"image.png\"")
+
+👉 Browser will:
+
+download file
+save as image.png
+🧠 Real-world use
+File download APIs
+S3 proxy download
+Report generation
+
+
+-------------------------------------------------
+
+
+🧠 Part 2: http.ServeMux (CORE CONCEPT)
+
+This is the routing engine in Go’s HTTP server.
+
+🔑 What is ServeMux?
+
+A request router that maps URL paths → handler functions
+
+🧠 Simple mental model
+Incoming HTTP request
+        ↓
+ServeMux decides handler
+        ↓
+Handler executes
+        ↓
+Response returned
+🧱 Your code
+mux := http.NewServeMux()
+
+👉 Creates a router.
+
+2️⃣ Download
+mux.HandleFunc("/download/", handlers.NewDownloadHandler(s3Store))
+
+⚠️ Note trailing /
+
+Behavior:
+GET /download/file1.txt
+GET /download/image.png
+
+👉 Matches because prefix /download/
+
+🧠 Important rule
+"/download/" → prefix match
+"/upload"    → exact match
+
+⚠️ Limitations
+no path params
+no middleware sup
+
+
+
+-----------------------------------------
+
+Type
+🧠 Custom header
+"X-Detected-Content-Type"
+X- → custom (convention)
+Not standard header
+
+
+------------------------------------------
+
+## What is a Presigned URL?
+
+A presigned URL is a **time-limited, pre-authenticated URL** that gives anyone who has it temporary access to a private S3 object — without needing AWS credentials.
+
+The server signs the URL using its AWS credentials at generation time, and that signature is embedded directly in the URL itself.
+
+```
+https://my-bucket.s3.amazonaws.com/video.mp4
+  ?X-Amz-Algorithm=AWS4-HMAC-SHA256
+  &X-Amz-Credential=AKIAIOSFODNN7%2F20260325%2Fus-east-1%2Fs3%2Faws4_request
+  &X-Amz-Date=20260325T100000Z
+  &X-Amz-Expires=900          ← expires in 900 seconds (15 min)
+  &X-Amz-SignedHeaders=host
+  &X-Amz-Signature=abc123...  ← proof the server authorized this
+```
+
+S3 verifies the signature and expiry on every request. No credentials needed by the caller.
+
+---
+
+## The Problem Without Presigning
+
+Without presigned URLs, you have two bad options:
+
+### Option 1: Make the bucket public
+```
+S3 bucket: PUBLIC
+Client → S3 directly ✓
+
+Problems:
+- Anyone on the internet can access any file
+- No expiry, no access control
+- One leaked URL = permanent access
+```
+
+### Option 2: Proxy everything through your server
+```
+Client → Your Server → S3 → Your Server → Client
+
+Problems:
+- Every byte of every video passes through your server
+- Server CPU, memory, and bandwidth all consumed
+- Your server becomes the bottleneck
+- Costs money for server egress + compute
+- Doesn't scale — 100 concurrent video downloads = 100 streams on your server
+```
+
+---
+
+## The Problem Presigning Solves
+
+```
+1. Client asks your server for a presigned URL
+   Client → POST /presign/video.mp4 → Server
+
+2. Server generates a signed URL (no data transferred)
+   Server → signs URL with AWS creds → returns URL
+
+3. Client downloads directly from S3
+   Client → S3 (using signed URL) → Client
+
+Your server is completely out of the data path.
+```
+
+Benefits:
+- S3 handles all the bandwidth and throughput
+- URL expires automatically (15 min in this project)
+- Each URL is scoped to one specific object
+- No credentials ever leave your server
+- Scales to thousands of concurrent downloads for free
+
+---
+
+## How it looks in this project
+
+```go
+// store/s3.go
+func (s *S3Store) PresignDownload(ctx context.Context, key string, expiry time.Duration) (string, error) {
+    presigner := s3.NewPresignClient(s.client)
+    req, err := presigner.PresignGetObject(ctx, &s3.GetObjectInput{
+        Bucket: aws.String(s.bucket),
+        Key:    aws.String(key),
+    }, s3.WithPresignExpires(expiry))  // ← bakes expiry into the signature
+    
+    return req.URL, nil  // ← just a string, no data moved
+}
+```
+
+The handler just redirects the client to that URL:
+
+```go
+// handlers/download.go
+url, _ := s.PresignDownload(r.Context(), key, 15*time.Minute)
+http.Redirect(w, r, url, http.StatusTemporaryRedirect)  // 307
+```
+
+The client follows the redirect and downloads straight from S3.
+
+---
+
+## When to use which endpoint
+
+| Scenario | Use |
+|----------|-----|
+| Large video download | `/presign/:key` — client hits S3 directly |
+| Small image in a backend pipeline | `/download/:key` — server proxies it |
+| Sharing a file with a user temporarily | `/presign/:key` — URL expires automatically |
+| Internal server-to-server transfer | `/download/:key` — controlled, no URL exposure |
+
+The presigned URL is one of the most practical patterns in S3 — it offloads all the heavy lifting to AWS while keeping your bucket private.
+
+
+-----------------------
+
+
+
+Authentication (who you are)
+Authorization (what you can do)
+
+
+--------------------

@@ -1,0 +1,12 @@
+ 1. nest g module user = to create a module
+ 2. prisma ORM for db
+ 3 . prisma studio to access ui of db
+ 4 . DTO  : data transfer object.
+ 5 . what is baron export pattern.
+ 6 . pipes in dto.
+ 7 .class validator
+ 8 .transformers.
+ 9. built in nest js config module is used for configuration management.
+ 10 . passport.js framework
+ 11. Gaurds
+ 

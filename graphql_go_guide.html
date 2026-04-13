@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL in Go — Complete Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --bg2: #0f1625;
+    --bg3: #151e30;
+    --card: #1a2236;
+    --border: #1e2d47;
+    --border2: #2a3f60;
+    --text: #e8edf5;
+    --muted: #7a90b0;
+    --accent: #4f8ef7;
+    --accent2: #00d4aa;
+    --accent3: #f97316;
+    --accent4: #a855f7;
+    --pink: #ec4899;
+    --yellow: #fbbf24;
+    --red: #ef4444;
+    --green: #22c55e;
+    --gql: #e535ab;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0a0f1a 0%, #0d1827 40%, #0f1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 80px 40px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(229,53,171,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(229,53,171,0.1); border: 1px solid rgba(229,53,171,0.3);
+    padding: 6px 16px; border-radius: 100px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    color: var(--gql); margin-bottom: 28px; letter-spacing: 0.05em;
+  }
+  .hero h1 {
+    font-family: 'Sora', sans-serif;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 700; line-height: 1.15;
+    background: linear-gradient(135deg, #fff 0%, #b8d0f0 50%, var(--gql) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 20px;
+  }
+  .hero p {
+    color: var(--muted); max-width: 640px; margin: 0 auto 40px;
+    font-size: 1.1rem; font-weight: 300;
+  }
+  .hero-tech {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+  }
+  .tech-pill {
+    padding: 6px 16px; border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+  }
+  .tech-pill.go { color: var(--accent2); border-color: rgba(0,212,170,0.3); }
+  .tech-pill.gql { color: var(--gql); border-color: rgba(229,53,171,0.3); }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,15,26,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex; gap: 0; overflow-x: auto;
+  }
+  nav a {
+    color: var(--muted); text-decoration: none; padding: 16px 20px;
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+  }
+  nav a:hover { color: var(--text); border-color: var(--border2); }
+  nav a.active { color: var(--accent); border-color: var(--accent); }
+
+  /* LAYOUT */
+  .container { max-width: 1100px; margin: 0 auto; padding: 60px 40px; }
+
+  /* SECTIONS */
+  section { margin-bottom: 80px; }
+  .section-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--gql); letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Sora', sans-serif; font-size: 2rem; font-weight: 700;
+    margin-bottom: 16px; line-height: 1.2;
+  }
+  .section-desc {
+    color: var(--muted); font-size: 1rem; max-width: 700px;
+    margin-bottom: 40px; line-height: 1.8;
+  }
+
+  /* PROBLEM/SOLUTION CARDS */
+  .compare-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;
+  }
+  @media (max-width: 700px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  .problem-card {
+    background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px; padding: 24px;
+  }
+  .solution-card {
+    background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 12px; padding: 24px;
+  }
+  .card-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .problem-card .card-label { color: var(--red); }
+  .solution-card .card-label { color: var(--green); }
+
+  /* CODE BLOCKS */
+  .code-tabs { margin-bottom: 32px; }
+  .tab-bar {
+    display: flex; gap: 2px;
+    background: var(--bg2); border-radius: 10px 10px 0 0;
+    padding: 4px 4px 0; border: 1px solid var(--border); border-bottom: none;
+  }
+  .tab-btn {
+    padding: 8px 18px; border-radius: 7px 7px 0 0; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    border: none; background: transparent; color: var(--muted);
+    transition: all 0.15s;
+  }
+  .tab-btn.active {
+    background: var(--card); color: var(--text);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  pre {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 0 12px 12px 12px; padding: 24px;
+    overflow-x: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.8;
+  }
+  pre.standalone { border-radius: 12px; }
+  .comment { color: #4a6080; }
+  .keyword { color: var(--accent4); }
+  .type { color: var(--accent2); }
+  .string { color: var(--yellow); }
+  .func { color: var(--accent); }
+  .gql-keyword { color: var(--gql); }
+  .gql-type { color: var(--accent2); }
+  .gql-field { color: var(--accent3); }
+  .number { color: var(--accent3); }
+
+  /* CONCEPT CARDS */
+  .concept-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px; margin-bottom: 40px;
+  }
+  .concept-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .concept-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .concept-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-bottom: 16px;
+  }
+  .concept-name { font-weight: 600; font-size: 1rem; margin-bottom: 8px; }
+  .concept-desc { color: var(--muted); font-size: 0.875rem; line-height: 1.7; }
+
+  /* FLOW DIAGRAM */
+  .flow-diagram {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 40px; margin-bottom: 40px;
+    overflow-x: auto;
+  }
+  .flow-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .flow-box {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 12px 20px; text-align: center;
+    font-size: 13px; font-weight: 500; min-width: 120px;
+  }
+  .flow-box.rest { border-color: rgba(239,68,68,0.4); color: var(--red); }
+  .flow-box.gql { border-color: rgba(229,53,171,0.4); color: var(--gql); }
+  .flow-box.neutral { border-color: var(--border2); color: var(--text); }
+  .flow-arrow { color: var(--muted); font-size: 20px; }
+  .flow-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* INFO BOXES */
+  .info-box {
+    border-radius: 12px; padding: 20px 24px; margin: 24px 0;
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .info-box.warning { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); }
+  .info-box.tip { background: rgba(79,142,247,0.08); border: 1px solid rgba(79,142,247,0.25); }
+  .info-box.danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); }
+  .info-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .info-text { font-size: 0.9rem; color: var(--muted); }
+  .info-text strong { color: var(--text); }
+
+  /* DEMO WIDGET */
+  .demo-widget {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; margin: 32px 0;
+  }
+  .demo-header {
+    padding: 16px 24px; background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted);
+  }
+  .demo-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .demo-body { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { .demo-body { grid-template-columns: 1fr; } }
+  .demo-panel { padding: 20px; }
+  .demo-panel:first-child { border-right: 1px solid var(--border); }
+  .demo-panel-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+  }
+  .demo-textarea {
+    width: 100%; background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    resize: vertical; min-height: 180px; line-height: 1.7;
+    outline: none; transition: border-color 0.2s;
+  }
+  .demo-textarea:focus { border-color: var(--gql); }
+  .demo-output {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    line-height: 1.7; min-height: 180px; color: var(--accent2);
+    white-space: pre-wrap; overflow-y: auto;
+  }
+  .demo-run-btn {
+    display: block; width: 100%; margin-top: 12px;
+    background: linear-gradient(135deg, rgba(229,53,171,0.2), rgba(229,53,171,0.1));
+    border: 1px solid rgba(229,53,171,0.4); color: var(--gql);
+    border-radius: 8px; padding: 10px; font-family: 'Sora', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .demo-run-btn:hover {
+    background: rgba(229,53,171,0.2); border-color: var(--gql);
+  }
+
+  /* COMPARISON TABLE */
+  .cmp-table {
+    width: 100%; border-collapse: collapse; margin: 24px 0;
+    font-size: 13px;
+  }
+  .cmp-table th {
+    padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border);
+    font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .cmp-table td {
+    padding: 12px 16px; border: 1px solid var(--border);
+    background: var(--card); vertical-align: top; line-height: 1.6;
+  }
+  .cmp-table td.check { color: var(--green); font-weight: 600; }
+  .cmp-table td.cross { color: var(--red); }
+  .cmp-table td.label { color: var(--text); font-weight: 500; background: var(--bg3); }
+
+  /* STEPS */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex; gap: 24px; padding: 32px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700;
+    background: rgba(229,53,171,0.1); border: 2px solid rgba(229,53,171,0.4);
+    color: var(--gql);
+  }
+  .step-body h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+  .step-body p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; }
+
+  /* BADGE */
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+  }
+  .badge.query { background: rgba(79,142,247,0.15); color: var(--accent); }
+  .badge.mutation { background: rgba(229,53,171,0.15); color: var(--gql); }
+  .badge.subscription { background: rgba(168,85,247,0.15); color: var(--accent4); }
+  .badge.resolver { background: rgba(249,115,22,0.15); color: var(--accent3); }
+
+  /* REAL WORLD SECTION */
+  .use-case-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px; margin-bottom: 40px;
+  }
+  .use-case-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .use-case-company {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .use-case-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+  .use-case-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border); padding: 40px;
+    text-align: center; color: var(--muted); font-size: 13px;
+  }
+
+  h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">★ Complete GraphQL Reference · Go Edition</div>
+  <h1>GraphQL in Go<br>From Zero to Production</h1>
+  <p>Every concept explained with real-world context, working code, and the exact problems each feature solves — implemented in Go.</p>
+  <div class="hero-tech">
+    <span class="tech-pill go">Go 1.22+</span>
+    <span class="tech-pill gql">GraphQL</span>
+    <span class="tech-pill go">gqlgen</span>
+    <span class="tech-pill gql">N+1 Problem</span>
+    <span class="tech-pill go">DataLoader</span>
+    <span class="tech-pill gql">Subscriptions</span>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="#problem" class="active">The Problem</a>
+  <a href="#concepts">Core Concepts</a>
+  <a href="#schema">Schema</a>
+  <a href="#queries">Queries</a>
+  <a href="#mutations">Mutations</a>
+  <a href="#resolvers">Resolvers</a>
+  <a href="#n1">N+1 Problem</a>
+  <a href="#subscriptions">Subscriptions</a>
+  <a href="#auth">Auth</a>
+  <a href="#errors">Errors</a>
+  <a href="#production">Production</a>
+</nav>
+
+<div class="container">
+
+<!-- ========================= SECTION 1: THE PROBLEM ========================= -->
+<section id="problem">
+  <div class="section-tag">— why graphql exists</div>
+  <div class="section-title">What Problem Does GraphQL Solve?</div>
+  <div class="section-desc">
+    Before GraphQL, building APIs meant REST — and REST has a set of well-known problems that become painful at scale. GraphQL was created at Facebook in 2012 to power their mobile app, which had extreme data-fetching demands.
+  </div>
+
+  <div class="compare-grid">
+    <div class="problem-card">
+      <div class="card-label">❌ REST Problems</div>
+      <ul style="list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem; color: var(--muted);">
+        <li><strong style="color:#fff;">Over-fetching:</strong> GET /users returns 40 fields. You needed 3.</li>
+        <li><strong style="color:#fff;">Under-fetching:</strong> GET /posts → then GET /users/{id} for each post's author → N+1 HTTP calls.</li>
+        <li><strong style="color:#fff;">Multiple roundtrips:</strong> Mobile apps on slow networks make 5-10 API calls to render one screen.</li>
+        <li><strong style="color:#fff;">Versioning hell:</strong> /api/v1, /api/v2, /api/v3 — maintaining multiple endpoint versions.</li>
+        <li><strong style="color:#fff;">No contract:</strong> No single source of truth for what fields exist and what types they are.</li>
+      </ul>
+    </div>
+    <div class="solution-card">
+      <div class="card-label">✓ GraphQL Solutions</div>
+      <ul style="list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem; color: var(--muted);">
+        <li><strong style="color:#fff;">Exact data:</strong> Client declares exactly what fields it needs. Nothing more, nothing less.</li>
+        <li><strong style="color:#fff;">Single request:</strong> Fetch a post + its author + comments all in one query.</li>
+        <li><strong style="color:#fff;">One endpoint:</strong> POST /graphql for everything. Network efficient on mobile.</li>
+        <li><strong style="color:#fff;">Versionless:</strong> Add fields without breaking clients. Deprecate gracefully.</li>
+        <li><strong style="color:#fff;">Typed schema:</strong> The schema is the contract — auto-generates docs and client types.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>The Classic REST vs GraphQL Request</h3>
+
+  <div class="code-tabs">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab(this, 'rest-example')">REST (old way)</button>
+      <button class="tab-btn" onclick="switchTab(this, 'gql-example')">GraphQL (new way)</button>
+    </div>
+    <div id="rest-example" class="tab-content active">
+<pre><span class="comment">// To show a blog post page in REST, you need 3+ HTTP calls:</span>
+
+<span class="comment">// 1. Get the post</span>
+<span class="keyword">GET</span> /api/posts/42
+<span class="comment">// Returns 25+ fields (id, title, body, created_at, updated_at,
+//          slug, meta_desc, featured_image, status, views, likes...)</span>
+<span class="comment">// But you only need: id, title, body</span>
+
+<span class="comment">// 2. Get the author (because /posts/42 only has author_id)</span>
+<span class="keyword">GET</span> /api/users/7
+<span class="comment">// Returns 15+ fields. You need: name, avatar_url</span>
+
+<span class="comment">// 3. Get the comments</span>
+<span class="keyword">GET</span> /api/posts/42/comments
+<span class="comment">// Returns array of comments, each with author_id</span>
+
+<span class="comment">// 4. For each comment, get the commenter (N HTTP calls!)</span>
+<span class="keyword">GET</span> /api/users/3
+<span class="keyword">GET</span> /api/users/9
+<span class="keyword">GET</span> /api/users/15
+<span class="comment">// ... and so on for every comment</span>
+
+<span class="comment">// Result: 3 + N HTTP roundtrips. Slow. Wasteful. N+1 problem.</span></pre>
+    </div>
+    <div id="gql-example" class="tab-content">
+<pre><span class="comment"># With GraphQL: ONE request, exact fields needed</span>
+
+<span class="gql-keyword">query</span> <span class="gql-type">GetBlogPost</span> {
+  <span class="gql-field">post</span>(id: <span class="string">"42"</span>) {
+    <span class="gql-field">id</span>
+    <span class="gql-field">title</span>
+    <span class="gql-field">body</span>          <span class="comment"># Only these 3 fields, not 25</span>
+    <span class="gql-field">author</span> {
+      <span class="gql-field">name</span>
+      <span class="gql-field">avatarUrl</span>    <span class="comment"># Only what we need</span>
+    }
+    <span class="gql-field">comments</span> {
+      <span class="gql-field">text</span>
+      <span class="gql-field">author</span> {
+        <span class="gql-field">name</span>       <span class="comment"># Nested! No extra calls needed</span>
+      }
+    }
+  }
+}
+
+<span class="comment">// Result: 1 HTTP request. Exactly the data needed.
+// Server batches DB calls internally (with DataLoader).</span></pre>
+    </div>
+  </div>
+
+  <div class="info-box tip">
+    <div class="info-icon">💡</div>
+    <div class="info-text"><strong>Real world impact:</strong> Facebook reduced their API response payload by 70% and cut the number of API calls for their mobile News Feed from ~4 to 1 by moving to GraphQL. GitHub's v4 API moved entirely to GraphQL for these same reasons.</div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 2: CORE CONCEPTS ========================= -->
+<section id="concepts">
+  <div class="section-tag">— building blocks</div>
+  <div class="section-title">Core Concepts</div>
+  <div class="section-desc">GraphQL has 7 fundamental concepts. Every feature you use is built on these primitives.</div>
+
+  <div class="concept-grid">
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(229,53,171,0.1); border:1px solid rgba(229,53,171,0.3);">📐</div>
+      <div class="concept-name">Schema</div>
+      <div class="concept-desc">The contract between client and server. Defines every type, field, query, and mutation. Written in SDL (Schema Definition Language). Auto-generates documentation.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(79,142,247,0.1); border:1px solid rgba(79,142,247,0.3);">🔍</div>
+      <div class="concept-name">Query</div>
+      <div class="concept-desc">Read operations. Like GET in REST. Client specifies exactly what data to fetch. Can traverse nested relationships in one request.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3);">✏️</div>
+      <div class="concept-name">Mutation</div>
+      <div class="concept-desc">Write operations. Create, update, delete. Like POST/PUT/DELETE in REST. Returns the modified data so clients can update state without extra calls.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);">⚡</div>
+      <div class="concept-name">Subscription</div>
+      <div class="concept-desc">Real-time data over WebSockets. Client subscribes to events (new message, price change). Server pushes updates. Replaces polling.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.3);">⚙️</div>
+      <div class="concept-name">Resolver</div>
+      <div class="concept-desc">Functions that return data for each field. The bridge between schema and data sources (DB, REST, cache). One resolver per field.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3);">📦</div>
+      <div class="concept-name">Types</div>
+      <div class="concept-desc">Strong typing system: scalars (String, Int, Boolean, Float, ID), Object types, Enums, Unions, Interfaces, Input types.</div>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(0,212,170,0.1); border:1px solid rgba(0,212,170,0.3);">🧩</div>
+      <div class="concept-name">Directives</div>
+      <div class="concept-desc">Annotations that change query behaviour. Built-in: @include, @skip, @deprecated. Custom: @auth, @rateLimit, @cached. Applied to fields, types, or arguments.</div>
+    </div>
+  </div>
+
+  <div class="flow-diagram">
+    <div style="text-align:center; font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:24px;">GraphQL Request Lifecycle</div>
+    <div class="flow-row">
+      <div class="flow-box neutral">Client<div class="flow-label">sends query</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box gql">Parse<div class="flow-label">AST creation</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box gql">Validate<div class="flow-label">against schema</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box gql">Execute<div class="flow-label">run resolvers</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box neutral">Response<div class="flow-label">JSON data</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 3: SCHEMA ========================= -->
+<section id="schema">
+  <div class="section-tag">— the contract</div>
+  <div class="section-title">Schema Definition Language (SDL)</div>
+  <div class="section-desc">
+    The schema is the <strong>single source of truth</strong>. It defines what data exists, what operations are allowed, and what types everything is. Without it: no documentation, no type safety, no auto-generated clients. Think of it as your API's constitution.
+  </div>
+
+  <h3>Complete Schema for a Blog API</h3>
+<pre class="standalone"><span class="comment"># schema.graphql — the entire API contract in one file</span>
+
+<span class="comment"># ─── SCALARS ──────────────────────────────────────────</span>
+<span class="gql-keyword">scalar</span> <span class="gql-type">Time</span>       <span class="comment"># Custom: ISO 8601 datetime</span>
+<span class="gql-keyword">scalar</span> <span class="gql-type">Upload</span>     <span class="comment"># Custom: file upload</span>
+
+<span class="comment"># ─── ENUMS ────────────────────────────────────────────</span>
+<span class="gql-keyword">enum</span> <span class="gql-type">PostStatus</span> {
+  <span class="gql-field">DRAFT</span>
+  <span class="gql-field">PUBLISHED</span>
+  <span class="gql-field">ARCHIVED</span>
+}
+
+<span class="gql-keyword">enum</span> <span class="gql-type">Role</span> {
+  <span class="gql-field">ADMIN</span>
+  <span class="gql-field">AUTHOR</span>
+  <span class="gql-field">READER</span>
+}
+
+<span class="comment"># ─── INTERFACES ───────────────────────────────────────</span>
+<span class="comment"># Interface = contract that multiple types can implement</span>
+<span class="gql-keyword">interface</span> <span class="gql-type">Node</span> {
+  <span class="gql-field">id</span>: <span class="gql-type">ID!</span>          <span class="comment"># ! means non-nullable (required)</span>
+}
+
+<span class="comment"># ─── OBJECT TYPES ─────────────────────────────────────</span>
+<span class="gql-keyword">type</span> <span class="gql-type">User</span> <span class="gql-keyword">implements</span> <span class="gql-type">Node</span> {
+  <span class="gql-field">id</span>:        <span class="gql-type">ID!</span>
+  <span class="gql-field">name</span>:      <span class="gql-type">String!</span>
+  <span class="gql-field">email</span>:     <span class="gql-type">String!</span>
+  <span class="gql-field">role</span>:      <span class="gql-type">Role!</span>
+  <span class="gql-field">avatarUrl</span>: <span class="gql-type">String</span>   <span class="comment"># nullable (no !)</span>
+  <span class="gql-field">posts</span>:     [<span class="gql-type">Post!</span>]! <span class="comment"># non-null list of non-null Posts</span>
+  <span class="gql-field">createdAt</span>: <span class="gql-type">Time!</span>
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">Post</span> <span class="gql-keyword">implements</span> <span class="gql-type">Node</span> {
+  <span class="gql-field">id</span>:        <span class="gql-type">ID!</span>
+  <span class="gql-field">title</span>:     <span class="gql-type">String!</span>
+  <span class="gql-field">body</span>:      <span class="gql-type">String!</span>
+  <span class="gql-field">status</span>:    <span class="gql-type">PostStatus!</span>
+  <span class="gql-field">author</span>:    <span class="gql-type">User!</span>     <span class="comment"># relationship → resolver fetches this</span>
+  <span class="gql-field">tags</span>:      [<span class="gql-type">Tag!</span>]!
+  <span class="gql-field">comments</span>:  [<span class="gql-type">Comment!</span>]!
+  <span class="gql-field">viewCount</span>: <span class="gql-type">Int!</span>
+  <span class="gql-field">createdAt</span>: <span class="gql-type">Time!</span>
+  <span class="gql-field">updatedAt</span>: <span class="gql-type">Time!</span>
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">Comment</span> <span class="gql-keyword">implements</span> <span class="gql-type">Node</span> {
+  <span class="gql-field">id</span>:        <span class="gql-type">ID!</span>
+  <span class="gql-field">text</span>:      <span class="gql-type">String!</span>
+  <span class="gql-field">author</span>:    <span class="gql-type">User!</span>
+  <span class="gql-field">post</span>:      <span class="gql-type">Post!</span>
+  <span class="gql-field">createdAt</span>: <span class="gql-type">Time!</span>
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">Tag</span> {
+  <span class="gql-field">id</span>:    <span class="gql-type">ID!</span>
+  <span class="gql-field">name</span>:  <span class="gql-type">String!</span>
+  <span class="gql-field">slug</span>:  <span class="gql-type">String!</span>
+  <span class="gql-field">posts</span>: [<span class="gql-type">Post!</span>]!
+}
+
+<span class="comment"># ─── UNION TYPES ──────────────────────────────────────</span>
+<span class="comment"># Union = a field can return one of several types</span>
+<span class="gql-keyword">union</span> <span class="gql-type">SearchResult</span> = <span class="gql-type">Post</span> | <span class="gql-type">User</span> | <span class="gql-type">Tag</span>
+
+<span class="comment"># ─── INPUT TYPES ──────────────────────────────────────</span>
+<span class="comment"># Input types are for arguments (cannot use object types)</span>
+<span class="gql-keyword">input</span> <span class="gql-type">CreatePostInput</span> {
+  <span class="gql-field">title</span>:  <span class="gql-type">String!</span>
+  <span class="gql-field">body</span>:   <span class="gql-type">String!</span>
+  <span class="gql-field">status</span>: <span class="gql-type">PostStatus!</span>
+  <span class="gql-field">tagIds</span>: [<span class="gql-type">ID!</span>]!
+}
+
+<span class="gql-keyword">input</span> <span class="gql-type">PostFilterInput</span> {
+  <span class="gql-field">status</span>:   <span class="gql-type">PostStatus</span>
+  <span class="gql-field">authorId</span>: <span class="gql-type">ID</span>
+  <span class="gql-field">tagSlug</span>:  <span class="gql-type">String</span>
+}
+
+<span class="comment"># ─── PAGINATION ───────────────────────────────────────</span>
+<span class="gql-keyword">type</span> <span class="gql-type">PageInfo</span> {
+  <span class="gql-field">hasNextPage</span>:     <span class="gql-type">Boolean!</span>
+  <span class="gql-field">hasPreviousPage</span>: <span class="gql-type">Boolean!</span>
+  <span class="gql-field">startCursor</span>:     <span class="gql-type">String</span>
+  <span class="gql-field">endCursor</span>:       <span class="gql-type">String</span>
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">PostConnection</span> {
+  <span class="gql-field">edges</span>:    [<span class="gql-type">PostEdge!</span>]!
+  <span class="gql-field">pageInfo</span>: <span class="gql-type">PageInfo!</span>
+  <span class="gql-field">total</span>:    <span class="gql-type">Int!</span>
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">PostEdge</span> {
+  <span class="gql-field">cursor</span>: <span class="gql-type">String!</span>
+  <span class="gql-field">node</span>:   <span class="gql-type">Post!</span>
+}
+
+<span class="comment"># ─── ROOT TYPES ───────────────────────────────────────</span>
+<span class="gql-keyword">type</span> <span class="gql-type">Query</span> {
+  <span class="gql-field">post</span>(id: <span class="gql-type">ID!</span>): <span class="gql-type">Post</span>
+  <span class="gql-field">posts</span>(
+    filter: <span class="gql-type">PostFilterInput</span>
+    first:  <span class="gql-type">Int</span> = <span class="number">10</span>
+    after:  <span class="gql-type">String</span>
+  ): <span class="gql-type">PostConnection!</span>
+  <span class="gql-field">user</span>(id: <span class="gql-type">ID!</span>): <span class="gql-type">User</span>
+  <span class="gql-field">me</span>: <span class="gql-type">User</span>          <span class="comment"># current authenticated user</span>
+  <span class="gql-field">search</span>(query: <span class="gql-type">String!</span>): [<span class="gql-type">SearchResult!</span>]!
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">Mutation</span> {
+  <span class="gql-field">createPost</span>(input: <span class="gql-type">CreatePostInput!</span>): <span class="gql-type">Post!</span>
+  <span class="gql-field">updatePost</span>(id: <span class="gql-type">ID!</span>, input: <span class="gql-type">CreatePostInput!</span>): <span class="gql-type">Post!</span>
+  <span class="gql-field">deletePost</span>(id: <span class="gql-type">ID!</span>): <span class="gql-type">Boolean!</span>
+  <span class="gql-field">addComment</span>(postId: <span class="gql-type">ID!</span>, text: <span class="gql-type">String!</span>): <span class="gql-type">Comment!</span>
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">Subscription</span> {
+  <span class="gql-field">commentAdded</span>(postId: <span class="gql-type">ID!</span>): <span class="gql-type">Comment!</span>
+  <span class="gql-field">postStatusChanged</span>(postId: <span class="gql-type">ID!</span>): <span class="gql-type">Post!</span>
+}</pre>
+
+  <div class="info-box tip">
+    <div class="info-icon">💡</div>
+    <div class="info-text"><strong>If schema didn't exist:</strong> clients would have to discover API capabilities through trial-and-error or outdated documentation. Schema enables introspection (clients can query the API's own structure), auto-generated TypeScript types, GraphiQL explorer, and compile-time validation.</div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 4: GO SETUP & RESOLVERS ========================= -->
+<section id="resolvers">
+  <div class="section-tag">— go implementation</div>
+  <div class="section-title">Setting Up GraphQL in Go with gqlgen</div>
+  <div class="section-desc">
+    <code style="background:var(--card); padding:2px 8px; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:12px;">gqlgen</code> is the most popular Go GraphQL library. It's schema-first — you write the SDL, it generates type-safe Go code. No reflection, no runtime magic.
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Install and Initialize</h3>
+<pre class="standalone"><span class="comment"># Install gqlgen</span>
+go get github.com/99designs/gqlgen
+
+<span class="comment"># Initialize project structure</span>
+go run github.com/99designs/gqlgen init
+
+<span class="comment"># Generated structure:</span>
+<span class="comment"># graph/
+#   schema.graphqls    ← your schema SDL
+#   schema.resolvers.go ← you implement these
+#   model/models_gen.go ← auto-generated Go structs
+#   generated/         ← generated execution engine
+# gqlgen.yml           ← config file
+# server.go            ← HTTP server entry point</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>The HTTP Server</h3>
+<pre class="standalone"><span class="comment">// server.go</span>
+<span class="keyword">package</span> main
+
+<span class="keyword">import</span> (
+    <span class="string">"log"</span>
+    <span class="string">"net/http"</span>
+    <span class="string">"os"</span>
+
+    <span class="string">"github.com/99designs/gqlgen/graphql/handler"</span>
+    <span class="string">"github.com/99designs/gqlgen/graphql/handler/extension"</span>
+    <span class="string">"github.com/99designs/gqlgen/graphql/handler/transport"</span>
+    <span class="string">"github.com/99designs/gqlgen/graphql/playground"</span>
+    <span class="string">"github.com/gorilla/websocket"</span>
+    <span class="string">"myapp/graph"</span>
+    <span class="string">"myapp/graph/generated"</span>
+)
+
+<span class="keyword">func</span> <span class="func">main</span>() {
+    <span class="comment">// Wire up dependencies</span>
+    db := <span class="func">mustOpenDB</span>()
+    
+    resolver := &graph.<span class="type">Resolver</span>{DB: db}
+    
+    <span class="comment">// Create the GraphQL handler</span>
+    srv := handler.<span class="func">New</span>(
+        generated.<span class="func">NewExecutableSchema</span>(generated.<span class="type">Config</span>{
+            Resolvers: resolver,
+        }),
+    )
+    
+    <span class="comment">// Add transports: HTTP for queries/mutations, WebSocket for subscriptions</span>
+    srv.<span class="func">AddTransport</span>(transport.<span class="type">POST</span>{})
+    srv.<span class="func">AddTransport</span>(transport.<span class="type">GET</span>{})
+    srv.<span class="func">AddTransport</span>(transport.<span class="type">Websocket</span>{
+        Upgrader: websocket.<span class="type">Upgrader</span>{
+            CheckOrigin: <span class="keyword">func</span>(r *http.Request) bool { <span class="keyword">return</span> true },
+        },
+    })
+    
+    <span class="comment">// Enable query complexity limiting</span>
+    srv.<span class="func">Use</span>(extension.<span class="func">FixedComplexityLimit</span>(<span class="number">100</span>))
+    
+    <span class="comment">// Enable introspection (disable in production)</span>
+    <span class="keyword">if</span> os.<span class="func">Getenv</span>(<span class="string">"ENV"</span>) != <span class="string">"production"</span> {
+        srv.<span class="func">Use</span>(extension.<span class="type">Introspection</span>{})
+    }
+    
+    http.<span class="func">Handle</span>(<span class="string">"/graphql"</span>, srv)
+    http.<span class="func">Handle</span>(<span class="string">"/playground"</span>, playground.<span class="func">Handler</span>(<span class="string">"GraphQL Playground"</span>, <span class="string">"/graphql"</span>))
+    
+    log.<span class="func">Println</span>(<span class="string">"Server running on :8080"</span>)
+    log.<span class="func">Fatal</span>(http.<span class="func">ListenAndServe</span>(<span class="string">":8080"</span>, nil))
+}</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Implement Resolvers</h3>
+        <p style="margin-bottom:16px;">Resolvers are Go functions that return data for each field. gqlgen generates the interface — you fill in the implementation.</p>
+<pre class="standalone"><span class="comment">// graph/schema.resolvers.go</span>
+<span class="keyword">package</span> graph
+
+<span class="keyword">import</span> (
+    <span class="string">"context"</span>
+    <span class="string">"fmt"</span>
+    <span class="string">"myapp/graph/model"</span>
+)
+
+<span class="comment">// Resolver holds all dependencies (DB, cache, external services)</span>
+<span class="keyword">type</span> <span class="type">Resolver</span> <span class="keyword">struct</span> {
+    DB    *sql.DB
+    Cache *redis.Client
+}
+
+<span class="comment">// ── QUERY RESOLVERS ──────────────────────────────────────────</span>
+
+<span class="comment">// Post resolver — fetches a single post by ID</span>
+<span class="keyword">func</span> (r *queryResolver) <span class="func">Post</span>(ctx context.Context, id string) (*model.Post, error) {
+    <span class="keyword">var</span> post model.Post
+    err := r.DB.<span class="func">QueryRowContext</span>(ctx, <span class="string">`
+        SELECT id, title, body, status, author_id, view_count, created_at, updated_at
+        FROM posts WHERE id = $1
+    `</span>, id).<span class="func">Scan</span>(
+        &post.ID, &post.Title, &post.Body, &post.Status,
+        &post.AuthorID, &post.ViewCount, &post.CreatedAt, &post.UpdatedAt,
+    )
+    <span class="keyword">if</span> err == sql.ErrNoRows {
+        <span class="keyword">return</span> nil, nil <span class="comment">// returning nil is valid (nullable field)</span>
+    }
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, fmt.<span class="func">Errorf</span>(<span class="string">"fetching post: %w"</span>, err)
+    }
+    <span class="keyword">return</span> &post, nil
+}
+
+<span class="comment">// Posts resolver — with pagination and filtering</span>
+<span class="keyword">func</span> (r *queryResolver) <span class="func">Posts</span>(
+    ctx context.Context,
+    filter *model.PostFilterInput,
+    first *int,
+    after *string,
+) (*model.PostConnection, error) {
+    limit := <span class="number">10</span>
+    <span class="keyword">if</span> first != nil {
+        limit = *first
+    }
+    
+    <span class="comment">// Build dynamic query</span>
+    query := <span class="string">"SELECT id, title, body, status, author_id, created_at FROM posts WHERE 1=1"</span>
+    args := []<span class="keyword">interface</span>{}{}
+    
+    <span class="keyword">if</span> filter != nil && filter.Status != nil {
+        args = <span class="func">append</span>(args, *filter.Status)
+        query += fmt.<span class="func">Sprintf</span>(<span class="string">" AND status = $%d"</span>, len(args))
+    }
+    <span class="keyword">if</span> after != nil {
+        args = <span class="func">append</span>(args, *after)
+        query += fmt.<span class="func">Sprintf</span>(<span class="string">" AND id > $%d"</span>, len(args))
+    }
+    args = <span class="func">append</span>(args, limit+<span class="number">1</span>) <span class="comment">// fetch one extra to check hasNextPage</span>
+    query += fmt.<span class="func">Sprintf</span>(<span class="string">" ORDER BY created_at DESC LIMIT $%d"</span>, len(args))
+
+    rows, err := r.DB.<span class="func">QueryContext</span>(ctx, query, args...)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, err
+    }
+    <span class="keyword">defer</span> rows.<span class="func">Close</span>()
+    
+    <span class="keyword">var</span> posts []*model.Post
+    <span class="keyword">for</span> rows.<span class="func">Next</span>() {
+        <span class="keyword">var</span> p model.Post
+        rows.<span class="func">Scan</span>(&p.ID, &p.Title, &p.Body, &p.Status, &p.AuthorID, &p.CreatedAt)
+        posts = <span class="func">append</span>(posts, &p)
+    }
+    
+    hasNextPage := len(posts) > limit
+    <span class="keyword">if</span> hasNextPage {
+        posts = posts[:limit]
+    }
+    
+    edges := make([]*model.PostEdge, len(posts))
+    <span class="keyword">for</span> i, p := range posts {
+        edges[i] = &model.PostEdge{Cursor: p.ID, Node: p}
+    }
+    
+    conn := &model.PostConnection{
+        Edges: edges,
+        PageInfo: &model.PageInfo{
+            HasNextPage: hasNextPage,
+        },
+    }
+    <span class="keyword">return</span> conn, nil
+}
+
+<span class="comment">// ── FIELD RESOLVERS ──────────────────────────────────────────</span>
+<span class="comment">// These run lazily — only when the client requests those fields!</span>
+
+<span class="comment">// Post.Author — only called if client asked for author fields</span>
+<span class="keyword">func</span> (r *postResolver) <span class="func">Author</span>(ctx context.Context, obj *model.Post) (*model.User, error) {
+    <span class="comment">// ⚠️  NAIVE: This causes N+1 problem!</span>
+    <span class="comment">// If we have 10 posts, this runs 10 times = 10 DB queries for authors</span>
+    <span class="comment">// See the DataLoader section for the fix.</span>
+    <span class="keyword">return</span> r.loaders.<span class="func">UserByID</span>.<span class="func">Load</span>(obj.AuthorID) <span class="comment">// ← DataLoader (batched)</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 5: QUERIES ========================= -->
+<section id="queries">
+  <div class="section-tag">— read operations</div>
+  <div class="section-title">Queries — Reading Data</div>
+  <div class="section-desc">Queries are read operations. The superpower: clients declare exactly what they need. Unused fields cost zero — the resolver won't even run.</div>
+
+  <div class="code-tabs">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab(this,'q1')">Basic Query</button>
+      <button class="tab-btn" onclick="switchTab(this,'q2')">With Variables</button>
+      <button class="tab-btn" onclick="switchTab(this,'q3')">Fragments</button>
+      <button class="tab-btn" onclick="switchTab(this,'q4')">Aliases</button>
+    </div>
+    <div id="q1" class="tab-content active">
+<pre><span class="comment"># Basic query — only the fields I need</span>
+<span class="gql-keyword">query</span> {
+  <span class="gql-field">post</span>(id: <span class="string">"42"</span>) {
+    <span class="gql-field">title</span>
+    <span class="gql-field">body</span>
+    <span class="gql-field">author</span> {          <span class="comment"># nested object — traverses relationship</span>
+      <span class="gql-field">name</span>
+      <span class="gql-field">avatarUrl</span>
+    }
+    <span class="gql-field">tags</span> {
+      <span class="gql-field">name</span>
+    }
+  }
+}
+
+<span class="comment">// Response:</span>
+{
+  <span class="string">"data"</span>: {
+    <span class="string">"post"</span>: {
+      <span class="string">"title"</span>: <span class="string">"GraphQL in Go"</span>,
+      <span class="string">"body"</span>: <span class="string">"..."</span>,
+      <span class="string">"author"</span>: { <span class="string">"name"</span>: <span class="string">"Alice"</span>, <span class="string">"avatarUrl"</span>: <span class="string">"https://..."</span> },
+      <span class="string">"tags"</span>: [{ <span class="string">"name"</span>: <span class="string">"go"</span> }, { <span class="string">"name"</span>: <span class="string">"graphql"</span> }]
+    }
+  }
+}</pre>
+    </div>
+    <div id="q2" class="tab-content">
+<pre><span class="comment"># Variables — never concatenate user input into queries!</span>
+<span class="gql-keyword">query</span> <span class="gql-type">GetPost</span>($id: <span class="gql-type">ID!</span>, $includeComments: <span class="gql-type">Boolean!</span>) {
+  <span class="gql-field">post</span>(id: $id) {
+    <span class="gql-field">title</span>
+    <span class="gql-field">body</span>
+    <span class="gql-field">comments</span> <span class="gql-keyword">@include</span>(if: $includeComments) {
+      <span class="gql-field">text</span>
+      <span class="gql-field">author</span> { <span class="gql-field">name</span> }
+    }
+  }
+}
+
+<span class="comment">// Variables sent separately (safe from injection):</span>
+{
+  <span class="string">"id"</span>: <span class="string">"42"</span>,
+  <span class="string">"includeComments"</span>: true
+}
+
+<span class="comment">// @include directive: comments only fetched when true
+// @skip directive: opposite — skip when true
+// These are evaluated BEFORE resolver runs</span></pre>
+    </div>
+    <div id="q3" class="tab-content">
+<pre><span class="comment"># Fragments — reusable field sets. DRY principle for queries.</span>
+<span class="comment"># Problem without fragments: copy-paste "author { name avatarUrl }" everywhere</span>
+
+<span class="gql-keyword">fragment</span> <span class="gql-type">AuthorFields</span> <span class="gql-keyword">on</span> <span class="gql-type">User</span> {
+  <span class="gql-field">id</span>
+  <span class="gql-field">name</span>
+  <span class="gql-field">avatarUrl</span>
+  <span class="gql-field">role</span>
+}
+
+<span class="gql-keyword">query</span> <span class="gql-type">BlogPage</span> {
+  <span class="gql-field">posts</span>(first: <span class="number">5</span>) {
+    <span class="gql-field">edges</span> {
+      <span class="gql-field">node</span> {
+        <span class="gql-field">title</span>
+        <span class="gql-field">author</span> {
+          ...<span class="gql-type">AuthorFields</span>    <span class="comment"># reuse the fragment</span>
+        }
+        <span class="gql-field">comments</span>(first: <span class="number">3</span>) {
+          <span class="gql-field">text</span>
+          <span class="gql-field">author</span> {
+            ...<span class="gql-type">AuthorFields</span>  <span class="comment"># same fragment, different context</span>
+          }
+        }
+      }
+    }
+  }
+}
+
+<span class="comment"># Inline fragments for Union/Interface types:</span>
+<span class="gql-keyword">query</span> <span class="gql-type">Search</span> {
+  <span class="gql-field">search</span>(query: <span class="string">"graphql"</span>) {
+    ... <span class="gql-keyword">on</span> <span class="gql-type">Post</span>  { <span class="gql-field">title</span>; <span class="gql-field">body</span> }
+    ... <span class="gql-keyword">on</span> <span class="gql-type">User</span>  { <span class="gql-field">name</span>; <span class="gql-field">email</span> }
+    ... <span class="gql-keyword">on</span> <span class="gql-type">Tag</span>   { <span class="gql-field">name</span>; <span class="gql-field">slug</span> }
+  }
+}</pre>
+    </div>
+    <div id="q4" class="tab-content">
+<pre><span class="comment"># Aliases — fetch the same field multiple times with different args</span>
+<span class="comment"># Problem without aliases: can't call posts() twice in one query</span>
+
+<span class="gql-keyword">query</span> <span class="gql-type">Dashboard</span> {
+  <span class="gql-field">publishedPosts</span>: <span class="gql-field">posts</span>(filter: { status: <span class="gql-type">PUBLISHED</span> }, first: <span class="number">5</span>) {
+    <span class="gql-field">edges</span> { <span class="gql-field">node</span> { <span class="gql-field">title</span>; <span class="gql-field">viewCount</span> } }
+  }
+  <span class="gql-field">draftPosts</span>: <span class="gql-field">posts</span>(filter: { status: <span class="gql-type">DRAFT</span> }, first: <span class="number">5</span>) {
+    <span class="gql-field">edges</span> { <span class="gql-field">node</span> { <span class="gql-field">title</span>; <span class="gql-field">createdAt</span> } }
+  }
+  <span class="gql-field">currentUser</span>: <span class="gql-field">me</span> {
+    <span class="gql-field">name</span>
+    <span class="gql-field">role</span>
+  }
+}
+
+<span class="comment">// Response uses alias names as keys:
+// { "publishedPosts": {...}, "draftPosts": {...}, "currentUser": {...} }
+// All in ONE HTTP request. No REST equivalent without custom endpoints.</span></pre>
+    </div>
+  </div>
+
+  <!-- Interactive Demo -->
+  <div class="demo-widget">
+    <div class="demo-header">
+      <span class="demo-dot" style="background:#ff5f57;"></span>
+      <span class="demo-dot" style="background:#febc2e;"></span>
+      <span class="demo-dot" style="background:#28c840;"></span>
+      <span style="margin-left:8px;">GraphQL Query Simulator</span>
+    </div>
+    <div class="demo-body">
+      <div class="demo-panel">
+        <div class="demo-panel-title">Query</div>
+        <textarea class="demo-textarea" id="gql-query">query {
+  post(id: "42") {
+    title
+    body
+    author {
+      name
+    }
+  }
+}</textarea>
+        <button class="demo-run-btn" onclick="runQuery()">▶ Run Query</button>
+      </div>
+      <div class="demo-panel">
+        <div class="demo-panel-title">Response</div>
+        <div class="demo-output" id="gql-output">Click "Run Query" to see the response...</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 6: MUTATIONS ========================= -->
+<section id="mutations">
+  <div class="section-tag">— write operations</div>
+  <div class="section-title">Mutations — Modifying Data</div>
+  <div class="section-desc">
+    Mutations are write operations — create, update, delete. The key advantage over REST: you get back exactly what the UI needs after the write, so no extra refetch call is needed.
+  </div>
+
+  <div class="code-tabs">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab(this,'m1')">GraphQL Mutation</button>
+      <button class="tab-btn" onclick="switchTab(this,'m2')">Go Resolver</button>
+      <button class="tab-btn" onclick="switchTab(this,'m3')">Error Handling</button>
+    </div>
+    <div id="m1" class="tab-content active">
+<pre><span class="comment"># Create a post — input type keeps args clean</span>
+<span class="gql-keyword">mutation</span> <span class="gql-type">CreatePost</span>($input: <span class="gql-type">CreatePostInput!</span>) {
+  <span class="gql-field">createPost</span>(input: $input) {
+    <span class="comment"># Return exactly what the UI needs to update state</span>
+    <span class="gql-field">id</span>
+    <span class="gql-field">title</span>
+    <span class="gql-field">status</span>
+    <span class="gql-field">createdAt</span>
+    <span class="gql-field">author</span> {
+      <span class="gql-field">name</span>
+    }
+  }
+}
+
+<span class="comment">// Variables:</span>
+{
+  <span class="string">"input"</span>: {
+    <span class="string">"title"</span>: <span class="string">"GraphQL in Go"</span>,
+    <span class="string">"body"</span>: <span class="string">"Today we learn..."</span>,
+    <span class="string">"status"</span>: <span class="string">"DRAFT"</span>,
+    <span class="string">"tagIds"</span>: [<span class="string">"1"</span>, <span class="string">"3"</span>]
+  }
+}
+
+<span class="comment"># Mutations run SEQUENTIALLY (unlike queries which can parallelize)
+# This guarantees order when mutations depend on each other:
+mutation {
+  a: createPost(...)  # runs first
+  b: updatePost(...)  # runs after a completes
+}</span></pre>
+    </div>
+    <div id="m2" class="tab-content">
+<pre><span class="comment">// graph/schema.resolvers.go</span>
+<span class="keyword">func</span> (r *mutationResolver) <span class="func">CreatePost</span>(
+    ctx context.Context,
+    input model.CreatePostInput,
+) (*model.Post, error) {
+    <span class="comment">// 1. Get authenticated user from context</span>
+    userID, err := <span class="func">userIDFromContext</span>(ctx)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, err <span class="comment">// returns error to client</span>
+    }
+    
+    <span class="comment">// 2. Validate business rules</span>
+    <span class="keyword">if</span> len(input.Title) < <span class="number">5</span> {
+        <span class="keyword">return</span> nil, fmt.<span class="func">Errorf</span>(<span class="string">"title too short"</span>)
+    }
+    
+    <span class="comment">// 3. Start transaction</span>
+    tx, err := r.DB.<span class="func">BeginTx</span>(ctx, nil)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, err
+    }
+    <span class="keyword">defer</span> tx.<span class="func">Rollback</span>()
+    
+    <span class="comment">// 4. Insert the post</span>
+    <span class="keyword">var</span> postID string
+    err = tx.<span class="func">QueryRowContext</span>(ctx, <span class="string">`
+        INSERT INTO posts (title, body, status, author_id)
+        VALUES ($1, $2, $3, $4) RETURNING id
+    `</span>, input.Title, input.Body, input.Status, userID).<span class="func">Scan</span>(&postID)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, fmt.<span class="func">Errorf</span>(<span class="string">"inserting post: %w"</span>, err)
+    }
+    
+    <span class="comment">// 5. Associate tags</span>
+    <span class="keyword">for</span> _, tagID := range input.TagIds {
+        _, err = tx.<span class="func">ExecContext</span>(ctx,
+            <span class="string">"INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2)"</span>,
+            postID, tagID,
+        )
+        <span class="keyword">if</span> err != nil {
+            <span class="keyword">return</span> nil, err
+        }
+    }
+    
+    <span class="keyword">if</span> err := tx.<span class="func">Commit</span>(); err != nil {
+        <span class="keyword">return</span> nil, err
+    }
+    
+    <span class="comment">// 6. Return the new post (gqlgen will call field resolvers for nested fields)</span>
+    <span class="keyword">return</span> &model.Post{
+        ID:       postID,
+        Title:    input.Title,
+        Body:     input.Body,
+        Status:   input.Status,
+        AuthorID: userID,
+    }, nil
+}</pre>
+    </div>
+    <div id="m3" class="tab-content">
+<pre><span class="comment">// Structured error handling pattern
+// Return business errors in the response, not as HTTP 4xx</span>
+
+<span class="comment">// Define error types in schema:</span>
+<span class="gql-keyword">type</span> <span class="gql-type">CreatePostResult</span> {
+  <span class="gql-field">post</span>:  <span class="gql-type">Post</span>
+  <span class="gql-field">errors</span>: [<span class="gql-type">UserError!</span>]!
+}
+
+<span class="gql-keyword">type</span> <span class="gql-type">UserError</span> {
+  <span class="gql-field">field</span>:   <span class="gql-type">String!</span>   <span class="comment"># which field caused the error</span>
+  <span class="gql-field">message</span>: <span class="gql-type">String!</span>
+}
+
+<span class="comment">// Go implementation:</span>
+<span class="keyword">func</span> (r *mutationResolver) <span class="func">CreatePost</span>(
+    ctx context.Context,
+    input model.CreatePostInput,
+) (*model.CreatePostResult, error) {
+    <span class="keyword">var</span> errs []model.UserError
+    
+    <span class="keyword">if</span> input.Title == <span class="string">""</span> {
+        errs = <span class="func">append</span>(errs, model.UserError{
+            Field: <span class="string">"title"</span>, Message: <span class="string">"Title is required"</span>,
+        })
+    }
+    <span class="keyword">if</span> len(input.Body) < <span class="number">100</span> {
+        errs = <span class="func">append</span>(errs, model.UserError{
+            Field: <span class="string">"body"</span>, Message: <span class="string">"Body must be at least 100 characters"</span>,
+        })
+    }
+    <span class="keyword">if</span> len(errs) > <span class="number">0</span> {
+        <span class="keyword">return</span> &model.CreatePostResult{Errors: errs}, nil <span class="comment">// no error!</span>
+    }
+    
+    <span class="comment">// ... create post ...</span>
+    <span class="keyword">return</span> &model.CreatePostResult{
+        Post:   post,
+        Errors: []model.UserError{},
+    }, nil
+}
+
+<span class="comment">// Response — client can handle per-field validation errors:
+// { "data": { "createPost": {
+//     "post": null,
+//     "errors": [
+//       { "field": "body", "message": "Body must be at least 100 characters" }
+//     ]
+// }}}</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 7: N+1 PROBLEM ========================= -->
+<section id="n1">
+  <div class="section-tag">— critical performance concept</div>
+  <div class="section-title">The N+1 Problem & DataLoader</div>
+  <div class="section-desc">
+    The N+1 problem is GraphQL's most dangerous performance pitfall. If you miss this, a query fetching 100 posts with authors will fire 101 database queries. DataLoader solves it by <strong>batching and caching</strong> — turning N+1 queries into 2.
+  </div>
+
+  <div class="compare-grid">
+    <div class="problem-card">
+      <div class="card-label">❌ N+1 Problem</div>
+<pre style="background:transparent; border:none; padding:0; font-size:12px;"><span class="comment"># Client asks for posts + authors:</span>
+query {
+  posts(first: 10) {
+    edges { node {
+      title
+      author { name }  # ← triggers N+1
+    }}
+  }
+}
+
+<span class="comment"># What happens in the DB:</span>
+SELECT * FROM posts LIMIT 10;  <span class="comment"># 1 query</span>
+SELECT * FROM users WHERE id=1; <span class="comment"># for post 1</span>
+SELECT * FROM users WHERE id=2; <span class="comment"># for post 2</span>
+SELECT * FROM users WHERE id=3; <span class="comment"># for post 3</span>
+<span class="comment">... (10 more queries)</span>
+
+<span class="comment"># Total: 11 DB queries for 10 posts!</span>
+<span class="comment"># For 1000 posts: 1001 queries. Kills DB.</span></pre>
+    </div>
+    <div class="solution-card">
+      <div class="card-label">✓ DataLoader Solution</div>
+<pre style="background:transparent; border:none; padding:0; font-size:12px;"><span class="comment"># Same client query.</span>
+<span class="comment"># DataLoader batches all author requests:</span>
+
+<span class="comment"># What happens in the DB:</span>
+SELECT * FROM posts LIMIT 10;
+<span class="comment"># DataLoader collects all 10 author_ids
+# then fires ONE batched query:</span>
+SELECT * FROM users
+  WHERE id IN (1,2,3,4,5,6,7,8,9,10);
+
+<span class="comment"># Total: 2 DB queries regardless of post count!</span>
+<span class="comment"># 1000 posts: still just 2 queries.</span></pre>
+    </div>
+  </div>
+
+  <h3>DataLoader Implementation in Go</h3>
+<pre class="standalone"><span class="comment">// dataloader/user_loader.go</span>
+<span class="keyword">package</span> dataloader
+
+<span class="keyword">import</span> (
+    <span class="string">"context"</span>
+    <span class="string">"database/sql"</span>
+    <span class="string">"fmt"</span>
+    <span class="string">"strings"</span>
+    <span class="string">"time"</span>
+
+    <span class="string">"github.com/graph-gophers/dataloader"</span>
+    <span class="string">"myapp/graph/model"</span>
+)
+
+<span class="keyword">type</span> <span class="type">Loaders</span> <span class="keyword">struct</span> {
+    UserByID *dataloader.Loader
+    TagsByPostID *dataloader.Loader
+}
+
+<span class="keyword">func</span> <span class="func">NewLoaders</span>(db *sql.DB) *<span class="type">Loaders</span> {
+    <span class="keyword">return</span> &<span class="type">Loaders</span>{
+        UserByID:    <span class="func">newUserLoader</span>(db),
+        TagsByPostID: <span class="func">newTagsLoader</span>(db),
+    }
+}
+
+<span class="comment">// UserByID DataLoader — batches individual user lookups</span>
+<span class="keyword">func</span> <span class="func">newUserLoader</span>(db *sql.DB) *dataloader.Loader {
+    <span class="comment">// The batch function: called with ALL keys collected during one "tick"</span>
+    batchFn := <span class="keyword">func</span>(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
+        <span class="comment">// Build the IN clause</span>
+        ids := make([]string, len(keys))
+        <span class="keyword">for</span> i, key := range keys {
+            ids[i] = key.String()
+        }
+        placeholders := make([]string, len(ids))
+        args := make([]<span class="keyword">interface</span>{}, len(ids))
+        <span class="keyword">for</span> i, id := range ids {
+            placeholders[i] = fmt.<span class="func">Sprintf</span>(<span class="string">"$%d"</span>, i+<span class="number">1</span>)
+            args[i] = id
+        }
+        
+        <span class="comment">// ONE query for ALL users!</span>
+        query := fmt.<span class="func">Sprintf</span>(
+            <span class="string">"SELECT id, name, email, role, avatar_url FROM users WHERE id IN (%s)"</span>,
+            strings.<span class="func">Join</span>(placeholders, <span class="string">","</span>),
+        )
+        rows, err := db.<span class="func">QueryContext</span>(ctx, query, args...)
+        <span class="keyword">if</span> err != nil {
+            <span class="comment">// Return same error for all keys</span>
+            results := make([]*dataloader.Result, len(keys))
+            <span class="keyword">for</span> i := range results {
+                results[i] = &dataloader.Result{Error: err}
+            }
+            <span class="keyword">return</span> results
+        }
+        <span class="keyword">defer</span> rows.<span class="func">Close</span>()
+        
+        <span class="comment">// Build a map for O(1) lookup</span>
+        userMap := map[string]*model.User{}
+        <span class="keyword">for</span> rows.<span class="func">Next</span>() {
+            <span class="keyword">var</span> u model.User
+            rows.<span class="func">Scan</span>(&u.ID, &u.Name, &u.Email, &u.Role, &u.AvatarUrl)
+            userMap[u.ID] = &u
+        }
+        
+        <span class="comment">// Return results in SAME ORDER as input keys</span>
+        results := make([]*dataloader.Result, len(keys))
+        <span class="keyword">for</span> i, key := range keys {
+            user, ok := userMap[key.String()]
+            <span class="keyword">if</span> !ok {
+                results[i] = &dataloader.Result{Error: fmt.<span class="func">Errorf</span>(<span class="string">"user not found: %s"</span>, key)}
+            } <span class="keyword">else</span> {
+                results[i] = &dataloader.Result{Data: user}
+            }
+        }
+        <span class="keyword">return</span> results
+    }
+    
+    <span class="keyword">return</span> dataloader.<span class="func">NewBatchedLoader</span>(
+        batchFn,
+        dataloader.<span class="func">WithWait</span>(<span class="number">2</span>*time.Millisecond), <span class="comment">// collect keys for 2ms</span>
+        dataloader.<span class="func">WithClearCacheOnBatch</span>(),          <span class="comment">// cache per-request</span>
+    )
+}
+
+<span class="comment">// ── Using DataLoader in resolver ────────────────────────────</span>
+
+<span class="comment">// Attach loaders to context per-request (in HTTP middleware)</span>
+<span class="keyword">func</span> <span class="func">LoaderMiddleware</span>(db *sql.DB, next http.Handler) http.Handler {
+    <span class="keyword">return</span> http.<span class="func">HandlerFunc</span>(<span class="keyword">func</span>(w http.ResponseWriter, r *http.Request) {
+        loaders := dataloader.<span class="func">NewLoaders</span>(db)
+        ctx := context.<span class="func">WithValue</span>(r.Context(), loadersKey, loaders)
+        next.<span class="func">ServeHTTP</span>(w, r.WithContext(ctx))
+    })
+}
+
+<span class="comment">// In Post.Author resolver — uses DataLoader transparently</span>
+<span class="keyword">func</span> (r *postResolver) <span class="func">Author</span>(ctx context.Context, obj *model.Post) (*model.User, error) {
+    loaders := ctx.<span class="func">Value</span>(loadersKey).(*dataloader.<span class="type">Loaders</span>)
+    
+    <span class="comment">// This LOOKS like a single user fetch,
+    // but DataLoader batches all concurrent calls together!</span>
+    thunk := loaders.UserByID.<span class="func">Load</span>(ctx, dataloader.<span class="func">StringKey</span>(obj.AuthorID))
+    result, err := thunk()
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, err
+    }
+    <span class="keyword">return</span> result.(*model.User), nil
+}</pre>
+
+  <div class="info-box warning">
+    <div class="info-icon">⚠️</div>
+    <div class="info-text"><strong>Always use DataLoader</strong> for any field that loads a related entity by ID. The pattern applies to any relationship: Post.author, Comment.author, Order.customer, Product.category. If you skip DataLoader, a small query can destroy your database under load.</div>
+  </div>
+</section>
+
+<!-- ========================= SECTION 8: SUBSCRIPTIONS ========================= -->
+<section id="subscriptions">
+  <div class="section-tag">— real-time</div>
+  <div class="section-title">Subscriptions — Real-Time Data</div>
+  <div class="section-desc">
+    Subscriptions replace polling. Instead of clients asking "any new data?" every 5 seconds, the server pushes updates over WebSockets the moment something changes. Ideal for: live chat, notifications, dashboards, collaborative editing.
+  </div>
+
+<pre class="standalone"><span class="comment">// graph/schema.resolvers.go — Subscription resolver</span>
+<span class="keyword">package</span> graph
+
+<span class="keyword">import</span> (
+    <span class="string">"context"</span>
+    <span class="string">"sync"</span>
+    <span class="string">"myapp/graph/model"</span>
+)
+
+<span class="comment">// EventBus — pub/sub in memory (use Redis Pub/Sub in production)</span>
+<span class="keyword">type</span> <span class="type">EventBus</span> <span class="keyword">struct</span> {
+    mu          sync.RWMutex
+    subscribers map[string][]chan *model.Comment <span class="comment">// postID → channels</span>
+}
+
+<span class="keyword">func</span> (bus *<span class="type">EventBus</span>) <span class="func">Subscribe</span>(postID string) <-chan *model.Comment {
+    ch := make(chan *model.Comment, <span class="number">1</span>)
+    bus.mu.Lock()
+    bus.subscribers[postID] = append(bus.subscribers[postID], ch)
+    bus.mu.Unlock()
+    <span class="keyword">return</span> ch
+}
+
+<span class="keyword">func</span> (bus *<span class="type">EventBus</span>) <span class="func">Publish</span>(postID string, comment *model.Comment) {
+    bus.mu.RLock()
+    <span class="keyword">defer</span> bus.mu.RUnlock()
+    <span class="keyword">for</span> _, ch := range bus.subscribers[postID] {
+        <span class="keyword">select</span> {
+        <span class="keyword">case</span> ch <- comment:
+        <span class="keyword">default</span>: <span class="comment">// drop if subscriber is slow</span>
+        }
+    }
+}
+
+<span class="comment">// CommentAdded subscription resolver</span>
+<span class="keyword">func</span> (r *subscriptionResolver) <span class="func">CommentAdded</span>(
+    ctx context.Context,
+    postID string,
+) (<-chan *model.Comment, error) {
+    <span class="comment">// Subscribe to the event bus for this post</span>
+    ch := r.EventBus.<span class="func">Subscribe</span>(postID)
+    
+    <span class="comment">// Clean up when client disconnects</span>
+    go <span class="keyword">func</span>() {
+        <-ctx.<span class="func">Done</span>()         <span class="comment">// WebSocket closed</span>
+        r.EventBus.<span class="func">Unsubscribe</span>(postID, ch)
+        close(ch)
+    }()
+    
+    <span class="keyword">return</span> ch, nil
+}
+
+<span class="comment">// In AddComment mutation — publish after saving</span>
+<span class="keyword">func</span> (r *mutationResolver) <span class="func">AddComment</span>(
+    ctx context.Context, postID string, text string,
+) (*model.Comment, error) {
+    comment, err := r.<span class="func">saveComment</span>(ctx, postID, text)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, err
+    }
+    
+    <span class="comment">// Push to all subscribers of this post in real-time</span>
+    r.EventBus.<span class="func">Publish</span>(postID, comment)
+    
+    <span class="keyword">return</span> comment, nil
+}
+
+<span class="comment">// Client subscribes via WebSocket:
+// subscription {
+//   commentAdded(postId: "42") {
+//     id
+//     text
+//     author { name avatarUrl }
+//   }
+// }</span></pre>
+</section>
+
+<!-- ========================= SECTION 9: AUTH ========================= -->
+<section id="auth">
+  <div class="section-tag">— security</div>
+  <div class="section-title">Authentication & Authorization</div>
+  <div class="section-desc">
+    GraphQL doesn't prescribe auth — you implement it. Auth lives in two places: authentication (who are you?) in HTTP middleware, authorization (what can you do?) in resolvers or directives.
+  </div>
+
+<pre class="standalone"><span class="comment">// ── 1. Authentication Middleware ─────────────────────────────</span>
+<span class="comment">// Run before GraphQL handler — extract and validate JWT</span>
+
+<span class="keyword">type</span> <span class="type">contextKey</span> string
+<span class="keyword">const</span> userKey <span class="type">contextKey</span> = <span class="string">"currentUser"</span>
+
+<span class="keyword">func</span> <span class="func">AuthMiddleware</span>(next http.Handler) http.Handler {
+    <span class="keyword">return</span> http.<span class="func">HandlerFunc</span>(<span class="keyword">func</span>(w http.ResponseWriter, r *http.Request) {
+        token := r.Header.<span class="func">Get</span>(<span class="string">"Authorization"</span>)
+        <span class="keyword">if</span> token == <span class="string">""</span> {
+            <span class="comment">// Not all operations require auth — allow unauthenticated through</span>
+            next.<span class="func">ServeHTTP</span>(w, r)
+            <span class="keyword">return</span>
+        }
+        
+        user, err := <span class="func">validateJWT</span>(strings.<span class="func">TrimPrefix</span>(token, <span class="string">"Bearer "</span>))
+        <span class="keyword">if</span> err != nil {
+            http.<span class="func">Error</span>(w, <span class="string">"Invalid token"</span>, http.StatusUnauthorized)
+            <span class="keyword">return</span>
+        }
+        
+        ctx := context.<span class="func">WithValue</span>(r.Context(), userKey, user)
+        next.<span class="func">ServeHTTP</span>(w, r.WithContext(ctx))
+    })
+}
+
+<span class="keyword">func</span> <span class="func">UserFromContext</span>(ctx context.Context) (*model.User, error) {
+    user, ok := ctx.<span class="func">Value</span>(userKey).(*model.User)
+    <span class="keyword">if</span> !ok || user == nil {
+        <span class="keyword">return</span> nil, fmt.<span class="func">Errorf</span>(<span class="string">"authentication required"</span>)
+    }
+    <span class="keyword">return</span> user, nil
+}
+
+<span class="comment">// ── 2. Resolver-level Authorization ─────────────────────────</span>
+
+<span class="keyword">func</span> (r *mutationResolver) <span class="func">DeletePost</span>(ctx context.Context, id string) (bool, error) {
+    <span class="comment">// Authentication: must be logged in</span>
+    currentUser, err := <span class="func">UserFromContext</span>(ctx)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> false, err
+    }
+    
+    <span class="comment">// Authorization: must own the post OR be admin</span>
+    post, err := r.<span class="func">getPost</span>(ctx, id)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> false, err
+    }
+    
+    <span class="keyword">if</span> post.AuthorID != currentUser.ID && currentUser.Role != model.RoleAdmin {
+        <span class="keyword">return</span> false, fmt.<span class="func">Errorf</span>(<span class="string">"permission denied: you don't own this post"</span>)
+    }
+    
+    <span class="comment">// ... delete the post ...</span>
+    <span class="keyword">return</span> true, nil
+}
+
+<span class="comment">// ── 3. Custom @auth Directive ────────────────────────────────</span>
+<span class="comment">// Declare in schema:</span>
+<span class="comment">// directive @auth(role: Role = READER) on FIELD_DEFINITION</span>
+<span class="comment">//
+// type Mutation {
+//   deletePost(id: ID!): Boolean! @auth(role: ADMIN)
+//   createPost(input: CreatePostInput!): Post! @auth(role: AUTHOR)
+// }</span>
+
+<span class="comment">// Implement the directive:</span>
+<span class="keyword">func</span> <span class="func">AuthDirective</span>(ctx context.Context, obj <span class="keyword">interface</span>{}, next graphql.Resolver, role model.Role) (<span class="keyword">interface</span>{}, error) {
+    user, err := <span class="func">UserFromContext</span>(ctx)
+    <span class="keyword">if</span> err != nil {
+        <span class="keyword">return</span> nil, err
+    }
+    <span class="keyword">if</span> !<span class="func">hasRole</span>(user.Role, role) {
+        <span class="keyword">return</span> nil, fmt.<span class="func">Errorf</span>(<span class="string">"permission denied: requires role %s"</span>, role)
+    }
+    <span class="keyword">return</span> next(ctx)
+}
+
+<span class="comment">// Register in server.go:
+// cfg.Directives.Auth = AuthDirective</span></pre>
+</section>
+
+<!-- ========================= SECTION 10: ERRORS ========================= -->
+<section id="errors">
+  <div class="section-tag">— graceful failures</div>
+  <div class="section-title">Error Handling</div>
+  <div class="section-desc">GraphQL always returns HTTP 200. Errors appear in the response body. This is by design — partial data success is valid (some fields succeed, some fail).</div>
+
+<pre class="standalone"><span class="comment">// ── Custom Error Types ───────────────────────────────────────</span>
+<span class="keyword">package</span> apperr
+
+<span class="keyword">import</span> <span class="string">"github.com/vektah/gqlparser/v2/gqlerror"</span>
+
+<span class="comment">// Define domain errors with extensions for client consumption</span>
+<span class="keyword">func</span> <span class="func">NotFound</span>(id string) error {
+    <span class="keyword">return</span> &gqlerror.Error{
+        Message: fmt.<span class="func">Sprintf</span>(<span class="string">"Resource not found: %s"</span>, id),
+        Extensions: map[string]<span class="keyword">interface</span>{}{
+            <span class="string">"code"</span>: <span class="string">"NOT_FOUND"</span>,
+            <span class="string">"id"</span>:   id,
+        },
+    }
+}
+
+<span class="keyword">func</span> <span class="func">Unauthorized</span>() error {
+    <span class="keyword">return</span> &gqlerror.Error{
+        Message: <span class="string">"Authentication required"</span>,
+        Extensions: map[string]<span class="keyword">interface</span>{}{
+            <span class="string">"code"</span>: <span class="string">"UNAUTHENTICATED"</span>,
+        },
+    }
+}
+
+<span class="keyword">func</span> <span class="func">Forbidden</span>() error {
+    <span class="keyword">return</span> &gqlerror.Error{
+        Message: <span class="string">"Insufficient permissions"</span>,
+        Extensions: map[string]<span class="keyword">interface</span>{}{
+            <span class="string">"code"</span>: <span class="string">"FORBIDDEN"</span>,
+        },
+    }
+}
+
+<span class="comment">// ── Error Presenter — sanitize internal errors ───────────────</span>
+<span class="comment">// Prevents stack traces and DB errors leaking to clients</span>
+
+srv.<span class="func">SetErrorPresenter</span>(<span class="keyword">func</span>(ctx context.Context, err error) *gqlerror.Error {
+    <span class="keyword">var</span> gqlErr *gqlerror.Error
+    <span class="keyword">if</span> errors.<span class="func">As</span>(err, &gqlErr) {
+        <span class="keyword">return</span> gqlErr <span class="comment">// pass through our typed errors</span>
+    }
+    
+    <span class="comment">// Log the real error server-side</span>
+    log.<span class="func">Error</span>(err)
+    
+    <span class="comment">// Return generic message to client (never expose internals)</span>
+    <span class="keyword">return</span> &gqlerror.Error{
+        Message: <span class="string">"Internal server error"</span>,
+        Extensions: map[string]<span class="keyword">interface</span>{}{
+            <span class="string">"code"</span>: <span class="string">"INTERNAL_ERROR"</span>,
+        },
+    }
+})
+
+<span class="comment">// ── What the client receives ─────────────────────────────────</span>
+<span class="comment">// HTTP 200 with partial data — this is valid GraphQL!</span>
+{
+  <span class="string">"data"</span>: {
+    <span class="string">"post"</span>: null,           <span class="comment">// field failed</span>
+    <span class="string">"me"</span>: { <span class="string">"name"</span>: <span class="string">"Alice"</span> } <span class="comment">// this field succeeded</span>
+  },
+  <span class="string">"errors"</span>: [
+    {
+      <span class="string">"message"</span>: <span class="string">"Resource not found: 99"</span>,
+      <span class="string">"path"</span>: [<span class="string">"post"</span>],
+      <span class="string">"locations"</span>: [{ <span class="string">"line"</span>: 2, <span class="string">"column"</span>: 3 }],
+      <span class="string">"extensions"</span>: {
+        <span class="string">"code"</span>: <span class="string">"NOT_FOUND"</span>,
+        <span class="string">"id"</span>: <span class="string">"99"</span>
+      }
+    }
+  ]
+}</pre>
+</section>
+
+<!-- ========================= SECTION 11: PRODUCTION ========================= -->
+<section id="production">
+  <div class="section-tag">— shipping it</div>
+  <div class="section-title">Production Considerations</div>
+
+  <div class="concept-grid">
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);">🛡️</div>
+      <div class="concept-name">Query Complexity Limits</div>
+      <div class="concept-desc">Clients can craft deeply nested queries that are O(n³). Assign complexity scores per field and reject queries exceeding a threshold.</div>
+<pre style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:11px; margin-top:12px; line-height:1.6;">srv.Use(extension.FixedComplexityLimit(100))
+<span class="comment">// or custom per-field complexity:</span>
+cfg.Complexity.Post.Comments = func(
+  childComplexity, limit int,
+) int {
+  return childComplexity * limit
+}</pre>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3);">⏱️</div>
+      <div class="concept-name">Query Depth Limits</div>
+      <div class="concept-desc">Prevent recursively nested queries like user → posts → author → posts → author → ... without limit.</div>
+<pre style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:11px; margin-top:12px; line-height:1.6;"><span class="comment">// github.com/nicksrandall/gqlmaxdepth</span>
+srv.Use(gqlmaxdepth.Limit(10))
+
+<span class="comment"># Reject queries deeper than 10 levels:</span>
+query { a { b { c { d { e { f { g {
+  h { i { j { k { ... }}}}}}}}}}}}
+<span class="comment"># ← rejected at depth 11</span></pre>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(79,142,247,0.1); border:1px solid rgba(79,142,247,0.3);">💾</div>
+      <div class="concept-name">Persisted Queries</div>
+      <div class="concept-desc">Instead of sending full query text, client sends a hash. Server looks up the cached query. Reduces payload 90%+ and prevents arbitrary query execution in production.</div>
+<pre style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:11px; margin-top:12px; line-height:1.6;"><span class="comment">// Client sends:</span>
+{ "extensions": {
+    "persistedQuery": {
+      "sha256Hash": "abc123..."
+    }
+  }
+}
+<span class="comment">// Server looks up hash → runs known query</span></pre>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(0,212,170,0.1); border:1px solid rgba(0,212,170,0.3);">🚦</div>
+      <div class="concept-name">Rate Limiting</div>
+      <div class="concept-desc">Limit by IP or user token. GraphQL's single endpoint makes traditional rate limiting by URL insufficient — rate limit by query cost instead.</div>
+<pre style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:11px; margin-top:12px; line-height:1.6;"><span class="comment">// Custom directive approach:</span>
+<span class="gql-keyword">type</span> <span class="gql-type">Query</span> {
+  <span class="gql-field">search</span>: [<span class="gql-type">Result</span>!]!
+    <span class="gql-keyword">@rateLimit</span>(
+      max: 10,
+      window: <span class="string">"1m"</span>
+    )
+}</pre>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3);">📊</div>
+      <div class="concept-name">Observability</div>
+      <div class="concept-desc">Track query names, execution time, errors, and field usage. Critical for knowing which fields are actually used (safe to deprecate).</div>
+<pre style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:11px; margin-top:12px; line-height:1.6;">srv.AroundOperations(
+  func(ctx context.Context, next graphql.OperationHandler) graphql.ResponseHandler {
+    oc := graphql.GetOperationContext(ctx)
+    start := time.Now()
+    res := next(ctx)
+    metrics.RecordQuery(oc.OperationName, time.Since(start))
+    return res
+  },
+)</pre>
+    </div>
+    <div class="concept-card">
+      <div class="concept-icon" style="background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.3);">🚫</div>
+      <div class="concept-name">Disable Introspection</div>
+      <div class="concept-desc">Introspection reveals your entire schema to attackers. Disable in production — clients should use pre-generated types from your SDL file.</div>
+<pre style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:11px; margin-top:12px; line-height:1.6;"><span class="keyword">if</span> os.Getenv(<span class="string">"ENV"</span>) == <span class="string">"production"</span> {
+  srv.Use(extension.DisableIntrospection{})
+}
+<span class="comment">// Keep enabled in dev for GraphiQL playground</span></pre>
+    </div>
+  </div>
+
+  <!-- Real World Use Cases -->
+  <h3 style="margin-top:40px;">Who Uses GraphQL in Production</h3>
+  <div class="use-case-grid">
+    <div class="use-case-card">
+      <div class="use-case-company">GitHub</div>
+      <div class="use-case-title">GitHub API v4</div>
+      <div class="use-case-desc">GitHub's entire developer API is GraphQL. Replaced v3 REST. Developers can fetch repo, issues, PRs, and contributors in a single query.</div>
+    </div>
+    <div class="use-case-card">
+      <div class="use-case-company">Shopify</div>
+      <div class="use-case-title">Storefront & Admin APIs</div>
+      <div class="use-case-desc">Powers millions of storefronts. Merchants query products, variants, inventory, and orders with complex nested relationships efficiently.</div>
+    </div>
+    <div class="use-case-card">
+      <div class="use-case-company">Twitter/X</div>
+      <div class="use-case-title">Feed Composition</div>
+      <div class="use-case-desc">Timeline data requires fetching tweets, users, media, engagement counts — GraphQL lets mobile clients request only what each platform needs.</div>
+    </div>
+    <div class="use-case-card">
+      <div class="use-case-company">Airbnb</div>
+      <div class="use-case-title">Search & Listing Pages</div>
+      <div class="use-case-desc">Listing pages need: photos, host info, pricing, availability, reviews, nearby listings. One GraphQL query replaces 5+ REST calls.</div>
+    </div>
+  </div>
+
+  <!-- What if GraphQL didn't exist -->
+  <div class="info-box danger">
+    <div class="info-icon">🤔</div>
+    <div class="info-text"><strong>What if GraphQL didn't exist?</strong> Teams would be stuck with REST's over-fetching and N+1 problems, writing custom endpoints per UI screen (BFF pattern), or building complex API gateways. Mobile apps would make more network requests, consuming more battery and data. APIs would version rapidly, forcing breaking changes. The schema-as-contract would be replaced by Swagger/OpenAPI docs that could fall out of sync. Facebook solved this by inventing GraphQL — then open-sourced it in 2015 so everyone could benefit.</div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:8px;">
+    GraphQL in Go · Complete Reference
+  </div>
+  <div style="font-size:12px; color:var(--border2);">
+    gqlgen · DataLoader · WebSockets · Production Patterns
+  </div>
+</footer>
+
+<script>
+// Tab switching
+function switchTab(btn, id) {
+  const container = btn.closest('.code-tabs');
+  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// Nav active state
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav a');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const link = document.querySelector(`nav a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+
+// Mock GraphQL simulator
+const mockData = {
+  post: {
+    title: "GraphQL in Go: A Deep Dive",
+    body: "GraphQL solves over-fetching and under-fetching...",
+    author: { name: "Alice Chen" },
+    tags: [{ name: "go" }, { name: "graphql" }, { name: "api" }],
+    viewCount: 1423,
+    status: "PUBLISHED"
+  },
+  posts: {
+    edges: [
+      { node: { title: "GraphQL in Go", author: { name: "Alice" } } },
+      { node: { title: "DataLoader Patterns", author: { name: "Bob" } } }
+    ],
+    pageInfo: { hasNextPage: true }
+  },
+  me: { name: "Current User", role: "AUTHOR" }
+};
+
+function runQuery() {
+  const query = document.getElementById('gql-query').value.trim();
+  const output = document.getElementById('gql-output');
+  
+  output.style.color = 'var(--muted)';
+  output.textContent = 'Executing...';
+  
+  setTimeout(() => {
+    try {
+      const result = simulateGraphQL(query);
+      output.style.color = 'var(--accent2)';
+      output.textContent = JSON.stringify(result, null, 2);
+    } catch(e) {
+      output.style.color = 'var(--red)';
+      output.textContent = JSON.stringify({
+        errors: [{ message: e.message, extensions: { code: "PARSE_ERROR" } }]
+      }, null, 2);
+    }
+  }, 300);
+}
+
+function simulateGraphQL(query) {
+  const data = {};
+  if (query.includes('post(')) {
+    const fields = {};
+    if (query.includes('title')) fields.title = mockData.post.title;
+    if (query.includes('body')) fields.body = mockData.post.body;
+    if (query.includes('viewCount')) fields.viewCount = mockData.post.viewCount;
+    if (query.includes('status')) fields.status = mockData.post.status;
+    if (query.includes('author')) {
+      fields.author = {};
+      if (query.includes('name')) fields.author.name = mockData.post.author.name;
+    }
+    if (query.includes('tags')) fields.tags = mockData.post.tags;
+    data.post = fields;
+  }
+  if (query.includes('posts(') || query.includes('posts {')) {
+    data.posts = mockData.posts;
+  }
+  if (query.includes('me {')) {
+    data.me = mockData.me;
+  }
+  if (Object.keys(data).length === 0) {
+    return { data: { message: "Try: query { post(id: \"42\") { title author { name } } }" } };
+  }
+  return { data };
+}
+</script>
+</body>
+</html>

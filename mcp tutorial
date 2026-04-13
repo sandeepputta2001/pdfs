@@ -1,0 +1,80 @@
+context window : session or conversation history.
+
+embeddings : converting text into numbers with similar meaning.
+
+Langchain : an abstraction layer used for building AI agents with minimal code. Langchain provides multiple component library which are mentioned below.
+langchain features : 
+1 . api management for multiple LLM providers.
+2 . vector db
+3 . embedding pipelines 
+4 . semantic search logic
+5 . state management
+6 . memory system 
+7 . Tool routing.
+8.integrating with external tools.
+9. llm related features like openAIEmbeddings etc..
+
+Agent : it contains memory , anatomy  , tools to complete customer's request. LLMs are static brains. When a customer asks agent for a task , agent analyzes prompt and context window(conversational history) and select needed components from the langchain library to perform the task.
+
+PROMPT ENGINEERING : zero shot , one shot , few shot , chain of thought.
+
+VECTOR DATABASES " 
+
+vector dbs : pine cone , chroma db
+
+embeddings : normal text is converted into vectors and store in vector db.
+Dimensionality : every word will have different meaning , so while converting text to embeddings we need to add dimensions and store them in vector DB. dimensions set the tone of the word/text used. There 1536  dimensions.
+Scoring : Scoring is a threshold set to figure out how similar the results needs to be considered as proper match.
+Chunk Overlap : Chunk overlap in a vector database is the practice of repeating a portion of the end of one text chunk at the beginning of the next, ensuring that relevant semantic context is not lost at the boundaries. It acts as a safety net, maintaining continuity between segments, usually calculated as a percentage (e.g., 10–20%) of the total chunk size, which improves search accuracy in RAG systems.
+
+RAG - Retrieval Augumented Generation.
+
+Semantic Search : query converted to vector embeddings and compared against embeddings in vector db
+
+Retrieval : fetches answer from vector db
+A : AI assisant has static knowledge , it depends on pretrained data . To keep LLM up to date , retrieved answer is given to LLM as prompt. So that model is up to date and we don't need to train model every time when new data set adds.
+G : with retrieved answer , LLM generates a refined and well structured answer and returned to customer.
+
+Langraph : a framework designed for building statefl  multi-step workflows. 
+
+
+AI Agent : Acts on behalf of users getting detailed preferences from customer or from context window.
+agent interacts with third party tools like github etc.. based on requirement of the customer.  
+MCPs are used to integrate agent with external /third party tools. MCPs guide LLMs to choose the right api while performing agentic task.
+Agent to agent call.
+
+Real world usecases of AI agents :
+Troubleshooting software issues.
+Backend development
+
+AI agents interact with LLMs to take decisions in the workflow, the logical brain of AI agent is LLM. 
+AI agent is like a automation script which thinks with the help of LLM.
+
+
+
+
+MCP Protocol : 
+
+1 . json RPC format of communication between client and server.
+stdio : it is the fastest way for two local process to communicate with each other without needing http or websocket. It is lightweight , isolated and great for testing dev environment.
+
+
+MCP inspector - web interface to interact with mcp server.
+MCP servers are built by enterprises itself and provided. MCP servers are developed using SDKs provided by MCP.
+Most of the AI agents has MCP clients embedded in it.
+
+ MCP server mostly consists of tools( these are the actions to be completed customers task say bookflight()) ,resources(used by llm to understand the enterprise and make decision based on customer's request) , prompts(better prompts provided by the MCP server developer for llm to think more accurately ).
+ MCP Client consists of Roots - folders on the client which can be read by mcp server.Roots (folders) which are allowed by client are only used by or can be used by MCP server. 
+ Sampling: 
+1.  on mcp server only tool definitions , resources , decoupled from AI , lightweight. MCP server does not talk to LLM because many clients may connect to server.
+Elitication : whenever server wants to talk to end user , it talks through client . while registerting client we register f
+
+Context : allows the server to talk back to the client to share the progress of task.
+
+
+PYTHON - global variable in python.
+
+Python variables are not boxes that hold values. They are labels/pointers that point to objects.
+
+
+
