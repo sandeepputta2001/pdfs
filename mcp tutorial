@@ -25,7 +25,7 @@ vector dbs : pine cone , chroma db
 embeddings : normal text is converted into vectors and store in vector db.
 Dimensionality : every word will have different meaning , so while converting text to embeddings we need to add dimensions and store them in vector DB. dimensions set the tone of the word/text used. There 1536  dimensions.
 Scoring : Scoring is a threshold set to figure out how similar the results needs to be considered as proper match.
-Chunk Overlap : Chunk overlap in a vector database is the practice of repeating a portion of the end of one text chunk at the beginning of the next, ensuring that relevant semantic context is not lost at the boundaries. It acts as a safety net, maintaining continuity between segments, usually calculated as a percentage (e.g., 10–20%) of the total chunk size, which improves search accuracy in RAG systems.
+Chunk Overlap : Chunk overlap in a vector database is the practice of repeating a portion of the end of one text chunk at the beginning of the next, ensuring that relevant semantic context is not lost at the boundaries. It acts as a safety net, maintaining continuity between segments, usually calculated as a percentage (e.g., 10–20%) of the total chunk size  , which improves search accuracy in RAG systems.
 
 RAG - Retrieval Augumented Generation.
 
@@ -43,7 +43,7 @@ agent interacts with third party tools like github etc.. based on requirement of
 MCPs are used to integrate agent with external /third party tools. MCPs guide LLMs to choose the right api while performing agentic task.
 Agent to agent call.
 
-Real world usecases of AI agents :
+Real world usecases of AI agents :                      
 Troubleshooting software issues.
 Backend development
 
@@ -63,7 +63,7 @@ MCP inspector - web interface to interact with mcp server.
 MCP servers are built by enterprises itself and provided. MCP servers are developed using SDKs provided by MCP.
 Most of the AI agents has MCP clients embedded in it.
 
- MCP server mostly consists of tools( these are the actions to be completed customers task say bookflight()) ,resources(used by llm to understand the enterprise and make decision based on customer's request) , prompts(better prompts provided by the MCP server developer for llm to think more accurately ).
+MCP server mostly consists of tools( these are the actions to be completed customers task say bookflight()) , resources(used by llm to understand the enterprise and make decision based on customer's request) , prompts(better prompts provided by the MCP server developer for llm to think more accurately ).
  MCP Client consists of Roots - folders on the client which can be read by mcp server.Roots (folders) which are allowed by client are only used by or can be used by MCP server. 
  Sampling: 
 1.  on mcp server only tool definitions , resources , decoupled from AI , lightweight. MCP server does not talk to LLM because many clients may connect to server.

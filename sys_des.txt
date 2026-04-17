@@ -1,0 +1,48 @@
+------------------------------------------------------------------------------------------------- SYSTEM DESIGN -------------------------------------------------------------------------------------------------------------------------------
+
+Why Does System Design Matter?
+Handles Growth
+Survives Failures
+Stays Fast
+Controls Costs
+think at scale.
+architect solutions
+
+3
+The System Design Process
+1
+Clarify Requirements
+What problem are we solving? What are the constraints? How many users? What features are must-haves vs nice-to-haves?
+2
+Define Scope
+In a 45-min interview, you can't design everything. Focus on core components. State your assumptions clearly.
+3
+High-Level Design
+Draw the big boxes: clients, servers, databases, caches. Show how data flows between them.
+4
+Deep Dive
+Pick critical components and go deeper. Database schema? API design? How does feature X work exactly?
+5
+Identify Bottlenecks
+Where will the system break at scale? What happens if this component fails? How do we handle it?
+6
+Scale & Optimize
+Add caching, sharding, replication. Trade-offs are key-explain WHY you chose each solution.
+
+
+While designing a system , exhaust simple solutions first , if system demonstrably fails , then monitor bottlenecks instead of guessing and then add complexity to the system only if it justifies the cost like adding cache saves read load by 90% instead of 10% . For that 10% query optimization , vertical scaling can be done - simple solutions to complex solutions
+
+Which best describes the goal of system design?
+System design is fundamentally about trade-offs. Every design decision has pros and cons. The goal is to make appropriate trade-offs that meet requirements within the given constraints, not to build the most complex system.
+
+ MVP stands for Minimum Viable Product. It is a development technique involving the release of a new product with only the essential features required to satisfy early adopters and gather user feedback. The primary goal is to validate product concepts quickly while minimizing time, cost, and development risks.
+
+Unlike coding interviews with specific correct answers, system design is about demonstrating your ability to think through trade-offs, make architectural decisions, and communicate your reasoning. There are many valid approaches.
+
+
+
+https://missioncompile.com/fundamentals/glossary   - sys design terms reference
+
+
+
+------------------------------------------------------------------------------------------------- SYSTEM DESIGN ------------------------------------------------------------------------------------------------------------------------------

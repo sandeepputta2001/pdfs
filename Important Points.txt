@@ -1736,3 +1736,797 @@ Authorization (what you can do)
 
 
 --------------------
+
+Blob Storage
+Storage
+Binary Large Object storage for unstructured data like images, videos, and files. Examples: AWS S3, Azure Blob Storage, Google Cloud Storage.
+
+Broker
+Communication
+An intermediary that receives messages from producers and delivers them to consumers. Examples: Kafka, RabbitMQ, Redis Pub/Sub.
+
+Cache
+Performance
+A high-speed data storage layer that stores a subset of data for faster access. Reduces database load and improves response times.
+
+CAP Theorem
+Distributed Systems
+States that a distributed system can only guarantee 2 of 3 properties: Consistency, Availability, and Partition Tolerance.
+
+CDN (Content Delivery Network)
+Performance
+A geographically distributed network of servers that delivers content from locations closest to users, reducing latency.
+
+Cluster
+Infrastructure
+A group of servers working together as a single system to provide high availability and load distribution.
+
+Concurrency
+Performance
+The ability to handle multiple tasks or requests simultaneously. Different from parallelism (executing tasks at the exact same time).
+
+Consistency
+Distributed Systems
+All nodes in a distributed system see the same data at the same time. Strong consistency ensures reads always return the latest write.
+
+Container
+Infrastructure
+A lightweight, standalone package that includes everything needed to run an application. Docker is the most popular containerization platform.
+
+Database Index
+Storage
+A data structure that improves the speed of data retrieval operations on a database table at the cost of additional storage and write overhead.
+
+
+Dead Letter Queue (DLQ)
+Communication
+A queue that stores messages that couldn't be processed successfully after multiple retries. Used for debugging and recovery.
+
+DNS - The internet's phone book that translates human-readable domain names (google.com) to IP addresses.
+
+Eventual Consistency
+Distributed Systems
+A consistency model where replicas will eventually converge to the same state, but not immediately after a write.
+
+Event-Driven Architecture
+Architecture
+A design pattern where the flow of the program is determined by events (messages) rather than sequential logic.
+
+Failover
+Reliability
+The automatic switching to a backup system when the primary system fails. Critical for high availability.
+
+Fan-out
+Communication
+A messaging pattern where a single message is delivered to multiple consumers. Used in notification systems and social media feeds.
+
+
+gRPC
+Communication
+A high-performance RPC (Remote Procedure Call) framework that uses Protocol Buffers for serialization. Faster than REST for service-to-service communication.
+
+Heartbeat
+Reliability
+Periodic signals sent between systems to indicate they are operational. Used for health monitoring and failure detection.
+
+Component whose failure brings down the system - single point of failure.
+
+A single point of failure (SPOF) is any COMPONENT whose failure causes the entire system to fail. To eliminate it, we add redundancy. For stateless services, run multiple instances behind a load balancer. For databases, use replication with automatic failover. For load balancers themselves, use pairs with floating IPs or DNS failover. Hidden SPOFs to watch for: single availability zone, single DNS provider, shared configuration servers. The goal is eliminating any single component that, if it fails, takes down the system.
+
+
+
+--------------------------------------
+
+Denormalization is a **very practical optimization technique**—used heavily in real systems when reads are expensive.
+
+Let’s break it down properly with **clear intuition → DB example → system design usage → trade-offs**.
+
+---
+
+# 🧠 1. What is Denormalization (Simple)
+
+👉 **Storing the same data in multiple places to make reads faster**
+
+Instead of:
+
+```text
+Fetch data from multiple tables (JOINs)
+```
+
+You:
+
+```text
+Store everything together → single read
+```
+
+---
+
+# 🔥 2. Normalization vs Denormalization
+
+---
+
+## ✅ Normalized (Clean design)
+
+```text
+Users Table:
+id | name
+
+Orders Table:
+id | user_id | amount
+```
+
+To get order + user name:
+
+```sql
+SELECT o.id, u.name
+FROM orders o
+JOIN users u ON o.user_id = u.id;
+```
+
+---
+
+## ⚡ Denormalized
+
+```text
+Orders Table:
+id | user_id | user_name | amount
+```
+
+👉 Now:
+
+```sql
+SELECT id, user_name FROM orders;
+```
+
+❌ No JOIN needed
+✅ Faster reads
+
+---
+
+# 🧠 3. Real-Time Example (Very Important)
+
+---
+
+## 🛒 E-commerce System
+
+### Requirement:
+
+* Show order history with:
+
+  * user name
+  * product name
+  * price
+
+---
+
+## ❌ Without Denormalization
+
+```text
+Orders → Users → Products → Payments
+```
+
+👉 Multiple joins → slow
+
+---
+
+## ✅ With Denormalization
+
+```text
+Orders Table:
+order_id
+user_name
+product_name
+price
+status
+```
+
+👉 Single query → fast response
+
+---
+
+# ⚡ 4. Why Companies Use It
+
+---
+
+## Problem:
+
+* High read traffic (e.g., 1000 QPS)
+* JOINs are expensive
+
+---
+
+## Solution:
+
+👉 Denormalize frequently accessed data
+
+---
+
+## Real-world usage:
+
+* Order history pages
+* News feed (Facebook/Twitter)
+* Analytics dashboards
+
+---
+
+# ⚠️ 5. The Trade-off (VERY IMPORTANT)
+
+👉 This is where most mistakes happen
+
+---
+
+## ❌ Problem: Data duplication
+
+```text
+user_name stored in:
+- Users table
+- Orders table
+```
+
+---
+
+## ❌ What if user changes name?
+
+Now:
+
+```text
+Users → updated
+Orders → still old ❌
+```
+
+👉 Data inconsistency
+
+---
+
+# 🔧 6. How Systems Handle This
+
+---
+
+## 🔹 Option 1: Accept Staleness
+
+👉 Example:
+
+* Old orders show old username
+
+✔ Acceptable in most systems
+
+---
+
+## 🔹 Option 2: Update Everywhere
+
+```text
+User updates name
+→ update Orders table also
+```
+
+❌ Expensive
+
+---
+
+## 🔹 Option 3: Event-Driven Sync (Advanced)
+
+```text
+User updated → Kafka event → update all denormalized tables
+```
+
+✔ Used in microservices
+
+---
+
+# 🧠 7. Easy → Medium → Advanced
+
+---
+
+## 🟢 Easy
+
+* duplicate data to avoid joins
+
+---
+
+## 🟡 Medium
+
+* denormalize read-heavy fields
+
+---
+
+## 🔴 Advanced
+
+* maintain consistency using:
+
+  * events (Kafka)
+  * background jobs
+  * versioning
+
+---
+
+# 🔥 8. When to Use Denormalization
+
+---
+
+## ✅ Use When:
+
+* High read traffic
+* JOINs are expensive
+* Slight inconsistency is acceptable
+
+---
+
+## ❌ Avoid When:
+
+* Strong consistency needed (bank balance)
+* Frequent updates
+
+---
+
+# 🔗 9. System Design Thinking
+
+---
+
+## Example Decision
+
+Instead of saying:
+
+❌ “We denormalize for performance”
+
+Say:
+
+✅
+
+> “We have ~1000 read QPS for order history.
+> JOIN queries increase latency, so we denormalize user_name and product_name in orders table.
+> Trade-off is stale data, which is acceptable since order history is not critical.”
+
+---
+
+# 🧪 Practice Scenarios
+
+1. Why denormalization is bad for banking systems?
+2. How Kafka helps keep denormalized data in sync?
+3. When does JOIN become a bottleneck?
+4. How to design schema for order history using denormalization?
+5. What happens if denormalized data becomes inconsistent?
+
+---
+
+# 🚀 Final Insight
+
+👉 Normalization = correctness
+👉 Denormalization = performance
+
+👉 Real systems = **balance between both**
+
+---
+
+If you want next, I can:
+
+* Show **PostgreSQL schema design (normalized vs denormalized)**
+* Or simulate **a real system design where you decide what to denormalize**
+
+
+
+------------
+
+These terms are often confused because they overlap, but each describes a **different dimension of system quality**. Let’s break them down **clearly + deeply**, then connect them with real-world system examples (like payment systems, Kafka pipelines, etc.).
+
+---
+
+# 🧠 1. Core Definitions (Simple → Deep)
+
+## 1. Reliability
+
+**👉 “Does the system work correctly over time?”**
+
+* Probability that a system performs **without failure**
+* Focus: correctness + consistency over duration
+
+### Example
+
+* Payment service processes 1M transactions → **0 failures**
+* That system is **highly reliable**
+
+### Real-world
+
+* If Kafka producer silently drops messages → **low reliability**
+
+---
+
+## 2. Availability
+
+**👉 “Is the system up and reachable?”**
+
+* % of time system is **operational**
+* Formula:
+
+```
+Availability = Uptime / (Uptime + Downtime)
+```
+
+### Example
+
+* 99.99% availability → ~52 min downtime/year
+
+### Key Insight
+
+* A system can be:
+
+  * **Available but unreliable** ❗
+    (responds, but wrong data)
+  * Example: returns stale balance but still responds
+
+---
+
+## 3. Scalability
+
+**👉 “Can the system handle growth?”**
+
+* Ability to handle increasing:
+
+  * traffic
+  * data
+  * users
+
+### Types
+
+* Vertical (scale up)
+* Horizontal (scale out)
+
+### Example
+
+* Adding more Kafka consumers → handle more events
+
+---
+
+## 4. Maintainability
+
+**👉 “How easy is it to modify or fix?”**
+
+* Ease of:
+
+  * debugging
+  * updating
+  * extending
+
+### Example
+
+Bad:
+
+```go
+if x == 1 { ... } else if x == 2 { ... } // spaghetti
+```
+
+Good:
+
+* modular services
+* clear interfaces
+
+### Real-world
+
+* Microservices → more maintainable (if designed well)
+
+---
+
+## 5. Consistency
+
+**👉 “Do all nodes see the same data?”**
+
+* From distributed systems (CAP theorem)
+
+### Types
+
+* Strong consistency
+* Eventual consistency
+
+### Example
+
+* Bank balance must be **strongly consistent**
+* Social media likes → eventual consistency
+
+---
+
+## 6. Fault Tolerance
+
+**👉 “Can the system continue despite failures?”**
+
+* System keeps working even when components fail
+
+### Example
+
+* Kafka broker crashes → replication takes over
+
+---
+
+## 7. Durability
+
+**👉 “Is data permanently safe?”**
+
+* Once written → not lost even after crash
+
+### Example
+
+* PostgreSQL WAL ensures durability
+
+---
+
+## 8. Resilience
+
+**👉 “How well system recovers from failure?”**
+
+* Related to fault tolerance but focuses on recovery
+
+### Example
+
+* Circuit breaker + retries
+
+---
+
+## 9. Performance
+
+**👉 “How fast is the system?”**
+
+* latency
+* throughput
+
+---
+
+## 10. Observability
+
+**👉 “Can we understand what's happening?”**
+
+* logs
+* metrics
+* tracing
+
+---
+
+# 🔗 2. Relationship Between Them
+
+Think like this:
+
+```
+                ┌──────────────┐
+                │ Reliability  │
+                └──────┬───────┘
+                       │
+     ┌─────────────────┼──────────────────┐
+     │                 │                  │
+Availability     Fault Tolerance     Consistency
+     │                 │                  │
+     └──────────┬──────┴──────┬───────────┘
+                │             │
+           Resilience     Durability
+
+Scalability → affects reliability under load  
+Maintainability → affects long-term reliability  
+Observability → enables all of them
+```
+
+---
+
+# 🔥 3. Real-Time System Example (Payment System)
+
+Let’s say:
+
+### Scenario: Order → Kafka → Payment Service → DB
+
+---
+
+## Case 1: Kafka Producer Issue (your real scenario)
+
+### What breaks?
+
+| Concept         | Impact                  |
+| --------------- | ----------------------- |
+| Reliability     | ❌ event not delivered   |
+| Availability    | ✅ service still running |
+| Fault tolerance | ❌ if no retry           |
+| Durability      | ❌ event lost            |
+| Consistency     | ❌ payment not recorded  |
+
+---
+
+## Case 2: DB Down
+
+| Concept         | Impact                   |
+| --------------- | ------------------------ |
+| Availability    | ❌                        |
+| Reliability     | ❌                        |
+| Fault tolerance | depends (retry / queue?) |
+
+---
+
+## Case 3: High Traffic Spike
+
+| Concept     | Impact              |
+| ----------- | ------------------- |
+| Scalability | ❌ if system crashes |
+| Reliability | ❌ under load        |
+| Performance | ❌ high latency      |
+
+---
+
+## Case 4: Code Hard to Change
+
+| Concept         | Impact                    |
+| --------------- | ------------------------- |
+| Maintainability | ❌                         |
+| Reliability     | ❌ bugs increase over time |
+
+---
+
+# 🧠 4. Easy → Medium → Advanced Understanding
+
+---
+
+## 🟢 Easy Level Analogy (Food Delivery App)
+
+| Concept         | Meaning                     |
+| --------------- | --------------------------- |
+| Availability    | App opens                   |
+| Reliability     | Order placed correctly      |
+| Consistency     | Same order shown everywhere |
+| Fault tolerance | retry if payment fails      |
+| Scalability     | handles peak dinner time    |
+| Maintainability | devs can fix bugs easily    |
+
+---
+
+## 🟡 Medium Level (Backend Service)
+
+### Example: Redis + DB caching
+
+* Availability: Redis up
+* Reliability: correct cache invalidation
+* Consistency: cache vs DB sync
+* Fault tolerance: fallback to DB
+* Scalability: multiple Redis nodes
+
+---
+
+## 🔴 Advanced Level (Distributed Systems)
+
+### Example: Kafka + Microservices
+
+* Reliability:
+
+  * at-least-once / exactly-once delivery
+* Consistency:
+
+  * eventual vs strong
+* Fault tolerance:
+
+  * replication factor
+* Availability:
+
+  * multiple brokers
+* Scalability:
+
+  * partitions
+
+---
+
+# ⚖️ 5. Trade-offs (Very Important)
+
+## CAP Theorem
+
+You can only choose 2:
+
+| Choose                             | Lose                  |
+| ---------------------------------- | --------------------- |
+| Consistency + Availability         | Partition tolerance ❌ |
+| Availability + Partition tolerance | Consistency ❌         |
+| Consistency + Partition tolerance  | Availability ❌        |
+
+---
+
+## Real-world choices
+
+* Banking → Consistency first
+* Netflix → Availability first
+* Kafka → Partition tolerance first
+
+---
+
+# 🚀 6. Common Mistakes Engineers Make
+
+❌ Thinking availability = reliability
+❌ Ignoring consistency in distributed systems
+❌ Not designing for failure
+❌ Over-scaling without observability
+
+---
+
+# 🧩 7. Practical Design Thinking
+
+When building system, ask:
+
+1. What if service crashes? → Fault tolerance
+2. What if traffic spikes? → Scalability
+3. What if data mismatch? → Consistency
+4. What if code needs change? → Maintainability
+5. What if message lost? → Reliability
+
+---
+
+# 🧠 8. Deep Insight (Senior-Level Thinking)
+
+* **Reliability = Outcome**
+* **Availability = Infrastructure**
+* **Fault tolerance = Design**
+* **Consistency = Data correctness**
+* **Scalability = Growth handling**
+* **Maintainability = Engineering velocity**
+
+---
+
+# 🧪 Practice Scenarios (for strong understanding)
+
+1. Design a system where:
+
+   * service is available but not reliable → explain how
+
+2. How would you make Kafka system:
+
+   * fault tolerant
+   * reliable
+   * scalable
+
+3. When would you sacrifice consistency?
+
+4. How do retries affect reliability vs consistency?
+
+---
+
+If you want, next I can:
+
+* Break this into **system design patterns (retry, circuit breaker, idempotency, etc.)**
+* Or map all these concepts to **your Golang + Kafka + Redis stack** with code-level examples.
+
+
+
+--------------
+
+Most web apps aim for under 200ms for interactive operations
+
+Latency is the time between when a request is sent and when a response is received. Lower is better. Users notice anything above 100ms.
+
+Bandwidth - a measurement of the amount of information that a particular computer network or Internet connection can send in a particular time. It is often measured in bits per second.
+
+Network congestion occurs when a network node or link carries more data than its capacity, resulting in reduced service quality, slow data transmission, or packet loss. It is a traffic jam in computer networks, often causing high latency and jitter when too many data requests occur at once
+
+IO contention occurs when multiple processes, VMs, or applications simultaneously demand more storage resources than are available, causing requests to queue, tail latency (p95/p99) to spike, and overall throughput to become uneven. It is characterized by high wait times in kernel or device queues (QAVG or KAVG in esxtop), often resulting from saturated storage bandwidth or overloaded controllers.
+
+
+
+Latency Breakdown: Typical Web Request
+DNS Lookup
+Domain → IP address
+1-50ms
+TCP Handshake
+3-way handshake
+10-100ms
+TLS Handshake
+SSL certificate exchange
+30-100ms
+Request Transfer
+Send HTTP request
+5-50ms
+Server Processing
+Your application code
+10-500ms
+Response Transfer
+Return response
+10-100ms
+Total: 66ms - 900ms typical (varies widely based on distance and complexity)
+
+
+
+
+
+
+
+
+
+
+
+
+
