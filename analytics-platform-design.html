@@ -1,0 +1,2152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulseAnalytics — 100M Events/sec Platform Design</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,300&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #080c14;
+    --bg2: #0d1420;
+    --bg3: #111b2e;
+    --surface: #141f35;
+    --surface2: #1a2840;
+    --border: #1e3050;
+    --border2: #2a4060;
+    --accent: #00d4ff;
+    --accent2: #0088ff;
+    --accent3: #00ff88;
+    --accent4: #ff6b35;
+    --accent5: #b44dff;
+    --warn: #ffb800;
+    --text: #e8f0fe;
+    --text2: #8ba8d0;
+    --text3: #4a6580;
+    --red: #ff4757;
+    --green: #00ff88;
+    --yellow: #ffb800;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --display: 'Orbitron', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* NOISE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* SCANLINES */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* HEADER */
+  .header {
+    position: relative;
+    padding: 60px 40px 40px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(0,136,255,0.06) 0%, transparent 100%);
+    overflow: hidden;
+  }
+
+  .header-grid {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(0,212,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
+  }
+
+  .header-glow {
+    position: absolute;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 300px;
+    background: radial-gradient(ellipse, rgba(0,136,255,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-content {
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .header-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 30px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .header-title {
+    font-family: var(--display);
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+  }
+
+  .header-title span { color: var(--accent); }
+
+  .header-subtitle {
+    font-size: 16px;
+    color: var(--text2);
+    max-width: 680px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 40px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-value {
+    font-family: var(--display);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-value.green { color: var(--green); }
+  .stat-value.orange { color: var(--accent4); }
+  .stat-value.purple { color: var(--accent5); }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* NAV */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(8,12,20,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+  }
+
+  .nav-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-inner::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    padding: 14px 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .nav-item:hover { color: var(--text2); }
+  .nav-item.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* SECTIONS */
+  .section {
+    display: none;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 40px;
+  }
+
+  .section.active { display: block; }
+
+  .section-title {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .section-desc {
+    color: var(--text2);
+    font-size: 14px;
+    margin-bottom: 36px;
+    line-height: 1.7;
+    max-width: 800px;
+  }
+
+  /* ARCH DIAGRAM */
+  .arch-diagram {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    overflow-x: auto;
+    margin-bottom: 32px;
+  }
+
+  .arch-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 900px;
+  }
+
+  .arch-layer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .layer-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding-left: 4px;
+  }
+
+  .layer-nodes {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    border: 1px solid;
+    min-width: 120px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .node:hover { transform: translateY(-2px); filter: brightness(1.2); }
+
+  .node.sdk { background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.3); }
+  .node.gateway { background: rgba(0,136,255,0.08); border-color: rgba(0,136,255,0.3); }
+  .node.kafka { background: rgba(255,107,53,0.08); border-color: rgba(255,107,53,0.3); }
+  .node.processor { background: rgba(180,77,255,0.08); border-color: rgba(180,77,255,0.3); }
+  .node.storage { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.3); }
+  .node.serving { background: rgba(255,184,0,0.08); border-color: rgba(255,184,0,0.3); }
+  .node.infra { background: rgba(100,120,180,0.08); border-color: rgba(100,120,180,0.3); }
+
+  .node-icon { font-size: 22px; }
+  .node-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .node-sub {
+    font-family: var(--sans);
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .node.sdk .node-name { color: var(--accent); }
+  .node.gateway .node-name { color: var(--accent2); }
+  .node.kafka .node-name { color: var(--accent4); }
+  .node.processor .node-name { color: var(--accent5); }
+  .node.storage .node-name { color: var(--accent3); }
+  .node.serving .node-name { color: var(--warn); }
+  .node.infra .node-name { color: var(--text2); }
+
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+    gap: 8px;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .arrow { color: var(--accent); font-size: 18px; animation: pulse-arrow 2s infinite; }
+
+  @keyframes pulse-arrow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* CARDS GRID */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border2); }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .card-icon.blue { background: rgba(0,136,255,0.15); }
+  .card-icon.orange { background: rgba(255,107,53,0.15); }
+  .card-icon.purple { background: rgba(180,77,255,0.15); }
+  .card-icon.green { background: rgba(0,255,136,0.15); }
+  .card-icon.yellow { background: rgba(255,184,0,0.15); }
+  .card-icon.cyan { background: rgba(0,212,255,0.15); }
+  .card-icon.red { background: rgba(255,71,87,0.15); }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .card-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+  }
+
+  .card-body {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+
+  .card-body ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .card-body li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .card-body li::before {
+    content: '→';
+    color: var(--accent);
+    font-family: var(--mono);
+    flex-shrink: 0;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  /* TECH TABLE */
+  .tech-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 32px;
+    font-size: 13px;
+  }
+
+  .tech-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .tech-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(30,48,80,0.5);
+    color: var(--text2);
+    vertical-align: top;
+  }
+
+  .tech-table tr:hover td { background: rgba(0,136,255,0.04); }
+
+  .tech-table .tech-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .badge.blue { background: rgba(0,136,255,0.15); color: var(--accent2); border: 1px solid rgba(0,136,255,0.2); }
+  .badge.orange { background: rgba(255,107,53,0.15); color: var(--accent4); border: 1px solid rgba(255,107,53,0.2); }
+  .badge.green { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+  .badge.purple { background: rgba(180,77,255,0.15); color: var(--accent5); border: 1px solid rgba(180,77,255,0.2); }
+  .badge.yellow { background: rgba(255,184,0,0.15); color: var(--warn); border: 1px solid rgba(255,184,0,0.2); }
+  .badge.red { background: rgba(255,71,87,0.15); color: var(--red); border: 1px solid rgba(255,71,87,0.2); }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text2);
+    overflow-x: auto;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .code-block .lang-tag {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+  }
+
+  .code-block .kw { color: var(--accent5); }
+  .code-block .str { color: var(--green); }
+  .code-block .num { color: var(--warn); }
+  .code-block .cmt { color: var(--text3); }
+  .code-block .fn { color: var(--accent); }
+  .code-block .type { color: var(--accent4); }
+
+  /* SCALE TABLE */
+  .scale-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .scale-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 16px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .scale-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .scale-item { display: flex; flex-direction: column; gap: 4px; }
+
+  .scale-key {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .scale-val {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .scale-val.accent { color: var(--accent); }
+  .scale-val.green { color: var(--green); }
+  .scale-val.orange { color: var(--accent4); }
+
+  .scale-note { font-size: 11px; color: var(--text3); line-height: 1.4; }
+
+  /* FLOW */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 20px 0;
+    border-bottom: 1px solid rgba(30,48,80,0.5);
+    position: relative;
+  }
+
+  .flow-step:last-child { border-bottom: none; }
+
+  .flow-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0,136,255,0.15);
+    border: 1px solid rgba(0,136,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent2);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .flow-content { flex: 1; }
+  .flow-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .flow-desc { font-size: 13px; color: var(--text2); line-height: 1.7; }
+  .flow-tag {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 10px;
+    background: rgba(0,136,255,0.1);
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent2);
+    letter-spacing: 0.05em;
+  }
+
+  /* EVENTS TABLE */
+  .events-section {
+    margin-bottom: 32px;
+  }
+
+  .event-row {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(30,48,80,0.5);
+    align-items: flex-start;
+  }
+
+  .event-row:last-child { border-bottom: none; }
+
+  .event-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    min-width: 180px;
+    font-weight: 700;
+    padding-top: 2px;
+  }
+
+  .event-desc { font-size: 13px; color: var(--text2); flex: 1; line-height: 1.6; }
+
+  .event-attrs {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    min-width: 200px;
+    line-height: 1.8;
+  }
+
+  /* CALLOUT */
+  .callout {
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .callout.info { background: rgba(0,136,255,0.08); border-left: 3px solid var(--accent2); }
+  .callout.warn { background: rgba(255,184,0,0.08); border-left: 3px solid var(--warn); }
+  .callout.success { background: rgba(0,255,136,0.08); border-left: 3px solid var(--green); }
+  .callout.danger { background: rgba(255,71,87,0.08); border-left: 3px solid var(--red); }
+
+  .callout-icon { font-size: 18px; flex-shrink: 0; }
+  .callout-text { font-size: 13px; color: var(--text2); line-height: 1.7; }
+  .callout-text strong { color: var(--text); }
+
+  /* CAPACITY TABLE */
+  .capacity-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+    font-size: 12px;
+  }
+
+  .capacity-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .capacity-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(30,48,80,0.4);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .capacity-table tr:hover td { background: rgba(0,136,255,0.04); }
+
+  .capacity-table .highlight { color: var(--accent); }
+  .capacity-table .green-text { color: var(--green); }
+  .capacity-table .orange-text { color: var(--accent4); }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 32px 0;
+  }
+
+  /* H3 INLINE */
+  h3 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 28px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h3::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  p { font-size: 13px; color: var(--text2); line-height: 1.75; margin-bottom: 14px; }
+  p strong { color: var(--text); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    .header { padding: 40px 20px 32px; }
+    .section { padding: 32px 20px; }
+    .nav { padding: 0 20px; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .header-stats { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-grid"></div>
+  <div class="header-glow"></div>
+  <div class="header-content">
+    <div class="header-eyebrow">System Design Document · v1.0</div>
+    <h1 class="header-title">PULSE<span>ANALYTICS</span><br>PLATFORM</h1>
+    <p class="header-subtitle">
+      End-to-end event analytics platform designed to ingest, process, and serve insights from 
+      100M+ events/second across 100M+ users — inspired by Amplitude & MoEngage, 
+      built for hyper-scale on cloud-native infrastructure.
+    </p>
+    <div class="header-stats">
+      <div class="stat">
+        <div class="stat-value">100M+</div>
+        <div class="stat-label">Events / sec</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value green">100M+</div>
+        <div class="stat-label">Active Users</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value orange">&lt;200ms</div>
+        <div class="stat-label">Query P95</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value purple">99.99%</div>
+        <div class="stat-label">Uptime SLA</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">&lt;5s</div>
+        <div class="stat-label">Ingest Latency</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-item active" onclick="showSection('overview')">01 · Overview</div>
+    <div class="nav-item" onclick="showSection('arch')">02 · Architecture</div>
+    <div class="nav-item" onclick="showSection('ingestion')">03 · Ingestion</div>
+    <div class="nav-item" onclick="showSection('processing')">04 · Processing</div>
+    <div class="nav-item" onclick="showSection('storage')">05 · Storage</div>
+    <div class="nav-item" onclick="showSection('events')">06 · Events & KPIs</div>
+    <div class="nav-item" onclick="showSection('serving')">07 · Query Serving</div>
+    <div class="nav-item" onclick="showSection('scale')">08 · Scale Math</div>
+    <div class="nav-item" onclick="showSection('infra')">09 · Infra & CI/CD</div>
+    <div class="nav-item" onclick="showSection('features')">10 · Features</div>
+  </div>
+</nav>
+
+<!-- SECTION 1: OVERVIEW -->
+<div class="section active" id="section-overview">
+  <div class="section-title">Platform Overview</div>
+  <p class="section-desc">
+    PulseAnalytics is an event-driven analytics platform that collects behavioral telemetry from mobile/web SDKs, 
+    processes it through a multi-stage pipeline, and delivers real-time dashboards and cohort analytics — 
+    designed from ground-up to scale horizontally to 100M events/sec.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-icon">💡</div>
+    <div class="callout-text">
+      <strong>Design Philosophy:</strong> Every layer is independently scalable. The ingestion tier scales 
+      independently from processing, which scales independently from storage. No single component is a 
+      bottleneck — this is guaranteed through design, not heroics.
+    </div>
+  </div>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">📱</div>
+        <div>
+          <div class="card-title">SDK Layer</div>
+          <div class="card-tag">CLIENT-SIDE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Lightweight SDKs for Android, iOS, Web, React Native, Flutter. Events are batched locally, compressed with gzip/brotli, and flushed on schedule or threshold. Offline buffering with SQLite/IndexedDB.
+        <ul>
+          <li>Event batching (max 500 events or 30s)</li>
+          <li>Auto-retry with exponential backoff</li>
+          <li>Device fingerprinting + anonymous ID</li>
+          <li>Session tracking, foreground/background</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">⚡</div>
+        <div>
+          <div class="card-title">Ingest Gateway</div>
+          <div class="card-tag">GOLANG · LAYER-7</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Stateless Go microservices behind AWS ALB/NLB. Validate, authenticate (API key / JWT), decompress, and publish to Kafka. Designed for 500K req/s per pod with minimal CPU.
+        <ul>
+          <li>Rate limiting via Redis token bucket</li>
+          <li>Request deduplication via Bloom filter (bloomd)</li>
+          <li>Schema validation (JSON Schema / Protobuf)</li>
+          <li>Admission control during overload</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">🚀</div>
+        <div>
+          <div class="card-title">Kafka Streaming Bus</div>
+          <div class="card-tag">EVENT BACKBONE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Multi-cluster Kafka as the durable event bus. Topics partitioned by app_id for locality. Separate topics for raw events, processed events, and system events.
+        <ul>
+          <li>3000+ partitions across 30+ brokers</li>
+          <li>Tiered storage (S3-backed) for cost</li>
+          <li>Separate clusters per region</li>
+          <li>MirrorMaker2 for cross-region replication</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">⚙️</div>
+        <div>
+          <div class="card-title">Stream Processors</div>
+          <div class="card-tag">GOLANG · FLINK</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Go-based stream consumers + Apache Flink for stateful aggregations. Real-time enrichment, deduplication, sessionization, and funnel computation.
+        <ul>
+          <li>Go consumers for raw enrichment</li>
+          <li>Flink for windowed aggregations</li>
+          <li>Redis for real-time state (sessions)</li>
+          <li>Dead-letter queue for failures</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow">🗄️</div>
+        <div>
+          <div class="card-title">Polyglot Storage</div>
+          <div class="card-tag">MULTI-ENGINE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Different storage engines for different query patterns. ClickHouse for OLAP analytics. PostgreSQL for metadata. MongoDB for flexible event schemas. Redis for hot aggregates.
+        <ul>
+          <li>ClickHouse: analytical queries, funnels</li>
+          <li>PostgreSQL: app config, user profiles</li>
+          <li>MongoDB: raw events (schema-flexible)</li>
+          <li>Redis: real-time counters + sessions</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon cyan">📊</div>
+        <div>
+          <div class="card-title">Analytics API</div>
+          <div class="card-tag">GOLANG · GRPC + REST</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Query serving layer with result caching, query planning, and multi-tenant isolation. Supports funnels, retention, cohorts, flows, dashboards.
+        <ul>
+          <li>gRPC for internal microservices</li>
+          <li>REST/GraphQL for dashboard frontend</li>
+          <li>Redis query result cache (L2)</li>
+          <li>Async query execution for heavy reports</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: ARCHITECTURE -->
+<div class="section" id="section-arch">
+  <div class="section-title">System Architecture</div>
+  <p class="section-desc">
+    Full system from SDK → ingest → Kafka → processing → storage → serving. Each tier is independently deployable and horizontally scalable via Kubernetes.
+  </p>
+
+  <div class="arch-diagram">
+    <div class="arch-layers">
+      <div class="arch-layer">
+        <div class="layer-label">── CLIENT LAYER ──</div>
+        <div class="layer-nodes">
+          <div class="node sdk"><div class="node-icon">📱</div><div class="node-name">Android SDK</div><div class="node-sub">Kotlin · SQLite buffer</div></div>
+          <div class="node sdk"><div class="node-icon">🍎</div><div class="node-name">iOS SDK</div><div class="node-sub">Swift · CoreData</div></div>
+          <div class="node sdk"><div class="node-icon">🌐</div><div class="node-name">Web SDK</div><div class="node-sub">JS · IndexedDB</div></div>
+          <div class="node sdk"><div class="node-icon">⚛️</div><div class="node-name">React Native</div><div class="node-sub">Cross-platform</div></div>
+          <div class="node sdk"><div class="node-icon">🎯</div><div class="node-name">Flutter SDK</div><div class="node-sub">Dart</div></div>
+          <div class="node sdk"><div class="node-icon">🖥️</div><div class="node-name">Server SDK</div><div class="node-sub">Go · Node · Python</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row"><span class="arrow">↓</span> HTTPS · gzip/brotli · batch payloads · protobuf <span class="arrow">↓</span></div>
+
+      <div class="arch-layer">
+        <div class="layer-label">── EDGE / INGESTION LAYER ──</div>
+        <div class="layer-nodes">
+          <div class="node gateway"><div class="node-icon">🛡️</div><div class="node-name">AWS CloudFront</div><div class="node-sub">CDN · TLS termination</div></div>
+          <div class="node gateway"><div class="node-icon">⚖️</div><div class="node-name">ALB / NLB</div><div class="node-sub">L7 load balancer</div></div>
+          <div class="node gateway"><div class="node-icon">⚡</div><div class="node-name">Ingest Gateway</div><div class="node-sub">Go · 200+ pods · HPA</div></div>
+          <div class="node gateway"><div class="node-icon">🔴</div><div class="node-name">Redis Cluster</div><div class="node-sub">Rate limit · Bloom</div></div>
+          <div class="node gateway"><div class="node-icon">🌸</div><div class="node-name">bloomd</div><div class="node-sub">Dedup filter</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row"><span class="arrow">↓</span> Kafka Producer API · async publish · acks=1 <span class="arrow">↓</span></div>
+
+      <div class="arch-layer">
+        <div class="layer-label">── STREAMING BACKBONE ──</div>
+        <div class="layer-nodes">
+          <div class="node kafka"><div class="node-icon">📨</div><div class="node-name">raw-events</div><div class="node-sub">3000 partitions · 7d TTL</div></div>
+          <div class="node kafka"><div class="node-icon">✅</div><div class="node-name">enriched-events</div><div class="node-sub">Geo + User enriched</div></div>
+          <div class="node kafka"><div class="node-icon">💀</div><div class="node-name">dlq-events</div><div class="node-sub">Dead letter queue</div></div>
+          <div class="node kafka"><div class="node-icon">🔄</div><div class="node-name">agg-events</div><div class="node-sub">Pre-aggregated results</div></div>
+          <div class="node kafka"><div class="node-icon">🔁</div><div class="node-name">MirrorMaker2</div><div class="node-sub">Cross-region replication</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row"><span class="arrow">↓</span> Kafka Consumer Groups · exactly-once semantics <span class="arrow">↓</span></div>
+
+      <div class="arch-layer">
+        <div class="layer-label">── PROCESSING LAYER ──</div>
+        <div class="layer-nodes">
+          <div class="node processor"><div class="node-icon">⚙️</div><div class="node-name">Enricher Service</div><div class="node-sub">Go · GeoIP · User lookup</div></div>
+          <div class="node processor"><div class="node-icon">🔗</div><div class="node-name">Session Engine</div><div class="node-sub">Go · Redis state</div></div>
+          <div class="node processor"><div class="node-icon">🌊</div><div class="node-name">Flink Jobs</div><div class="node-sub">Windowed aggregations</div></div>
+          <div class="node processor"><div class="node-icon">📈</div><div class="node-name">Funnel Processor</div><div class="node-sub">Go · ordered events</div></div>
+          <div class="node processor"><div class="node-icon">🎯</div><div class="node-name">Cohort Builder</div><div class="node-sub">Go · async batch</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row"><span class="arrow">↓</span> Batch writes · bulk insert · columnar format <span class="arrow">↓</span></div>
+
+      <div class="arch-layer">
+        <div class="layer-label">── STORAGE LAYER ──</div>
+        <div class="layer-nodes">
+          <div class="node storage"><div class="node-icon">⚡</div><div class="node-name">ClickHouse</div><div class="node-sub">OLAP · sharded cluster</div></div>
+          <div class="node storage"><div class="node-icon">🐘</div><div class="node-name">PostgreSQL</div><div class="node-sub">Metadata · RDS Aurora</div></div>
+          <div class="node storage"><div class="node-icon">🍃</div><div class="node-name">MongoDB</div><div class="node-sub">Raw events · Atlas</div></div>
+          <div class="node storage"><div class="node-icon">🔴</div><div class="node-name">Redis Cluster</div><div class="node-sub">Hot counters · cache</div></div>
+          <div class="node storage"><div class="node-icon">🪣</div><div class="node-name">S3 / GCS</div><div class="node-sub">Cold archive · Parquet</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row"><span class="arrow">↓</span> gRPC internal · REST external · GraphQL dashboard <span class="arrow">↓</span></div>
+
+      <div class="arch-layer">
+        <div class="layer-label">── SERVING / DASHBOARD LAYER ──</div>
+        <div class="layer-nodes">
+          <div class="node serving"><div class="node-icon">🔌</div><div class="node-name">Query API</div><div class="node-sub">Go · gRPC + REST</div></div>
+          <div class="node serving"><div class="node-icon">⚡</div><div class="node-name">Result Cache</div><div class="node-sub">Redis · 5min TTL</div></div>
+          <div class="node serving"><div class="node-icon">📊</div><div class="node-name">Dashboard UI</div><div class="node-sub">React · Next.js</div></div>
+          <div class="node serving"><div class="node-icon">📬</div><div class="node-name">Alert Engine</div><div class="node-sub">Go · webhook/email</div></div>
+          <div class="node serving"><div class="node-icon">🤖</div><div class="node-name">AI Insights</div><div class="node-sub">RAG · Qdrant · LLM</div></div>
+        </div>
+      </div>
+
+      <div class="arrow-row"><span class="arrow">↓</span> Metrics · Traces · Logs <span class="arrow">↓</span></div>
+
+      <div class="arch-layer">
+        <div class="layer-label">── OBSERVABILITY ──</div>
+        <div class="layer-nodes">
+          <div class="node infra"><div class="node-icon">📈</div><div class="node-name">Prometheus</div><div class="node-sub">Metrics · Thanos</div></div>
+          <div class="node infra"><div class="node-icon">📊</div><div class="node-name">Grafana</div><div class="node-sub">Dashboards · Alerts</div></div>
+          <div class="node infra"><div class="node-icon">🔭</div><div class="node-name">OpenTelemetry</div><div class="node-sub">Traces · OTEL Collector</div></div>
+          <div class="node infra"><div class="node-icon">🔍</div><div class="node-name">Jaeger</div><div class="node-sub">Distributed tracing</div></div>
+          <div class="node infra"><div class="node-icon">📝</div><div class="node-name">Loki</div><div class="node-sub">Log aggregation</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: INGESTION -->
+<div class="section" id="section-ingestion">
+  <div class="section-title">Ingestion Pipeline</div>
+  <p class="section-desc">
+    The ingestion layer is the most critical path. It must handle 100M events/sec with sub-100ms acknowledgment latency, 
+    provide durability guarantees, and protect downstream systems from overload.
+  </p>
+
+  <h3>SDK Design</h3>
+  <div class="code-block">
+    <div class="lang-tag">GO · PROTO</div>
+<span class="cmt">// Event payload (Protobuf — ~200 bytes avg per event)</span>
+<span class="kw">message</span> <span class="type">EventBatch</span> {
+  <span class="type">string</span>   app_id      = <span class="num">1</span>;   <span class="cmt">// tenant identifier</span>
+  <span class="type">string</span>   device_id   = <span class="num">2</span>;   <span class="cmt">// anonymous device uuid</span>
+  <span class="type">string</span>   user_id     = <span class="num">3</span>;   <span class="cmt">// post-login identity</span>
+  <span class="type">string</span>   sdk_version = <span class="num">4</span>;
+  <span class="type">int64</span>    sent_at_ms  = <span class="num">5</span>;
+  <span class="kw">repeated</span> <span class="type">Event</span> events = <span class="num">6</span>;   <span class="cmt">// batch of up to 500</span>
+}
+
+<span class="kw">message</span> <span class="type">Event</span> {
+  <span class="type">string</span>        event_id   = <span class="num">1</span>;   <span class="cmt">// client-generated UUID v4</span>
+  <span class="type">string</span>        event_name = <span class="num">2</span>;   <span class="cmt">// "app_installed", "purchase", etc</span>
+  <span class="type">int64</span>         event_time = <span class="num">3</span>;   <span class="cmt">// epoch ms (client clock)</span>
+  <span class="kw">map</span>&lt;<span class="type">string</span>, <span class="type">Value</span>&gt; props  = <span class="num">4</span>;   <span class="cmt">// arbitrary properties</span>
+  <span class="type">DeviceContext</span> device     = <span class="num">5</span>;
+  <span class="type">AppContext</span>    app        = <span class="num">6</span>;
+}
+  </div>
+
+  <h3>Ingest Gateway — Go Service</h3>
+  <div class="code-block">
+    <div class="lang-tag">GO</div>
+<span class="kw">func</span> <span class="fn">handleIngest</span>(w http.ResponseWriter, r *http.Request) {
+    <span class="cmt">// 1. Auth — API key lookup from Redis cache (1µs hot path)</span>
+    apiKey := r.Header.Get(<span class="str">"X-API-Key"</span>)
+    app, err := <span class="fn">authCache.Get</span>(ctx, apiKey)
+    <span class="kw">if</span> err != <span class="kw">nil</span> { <span class="fn">writeError</span>(w, <span class="num">401</span>); <span class="kw">return</span> }
+
+    <span class="cmt">// 2. Rate limit — token bucket per app_id in Redis</span>
+    <span class="kw">if</span> !<span class="fn">rateLimiter.Allow</span>(app.ID) { <span class="fn">writeError</span>(w, <span class="num">429</span>); <span class="kw">return</span> }
+
+    <span class="cmt">// 3. Decompress + parse (gzip or brotli)</span>
+    batch, err := <span class="fn">parseBatch</span>(r)
+
+    <span class="cmt">// 4. Deduplicate via Bloom filter (bloomd)</span>
+    newEvents := <span class="fn">bloomFilter.FilterNew</span>(batch.Events)
+
+    <span class="cmt">// 5. Publish to Kafka — partition by app_id for ordering</span>
+    <span class="kw">for</span> _, evt := <span class="kw">range</span> newEvents {
+        key := []<span class="type">byte</span>(app.ID + <span class="str">":"</span> + evt.DeviceId)
+        <span class="fn">kafkaProducer.ProduceAsync</span>(<span class="str">"raw-events"</span>, key, evt)
+    }
+
+    <span class="cmt">// 6. Ack immediately — don't wait for Kafka ack (acks=1)</span>
+    w.WriteHeader(<span class="num">202</span>) <span class="cmt">// Accepted</span>
+}
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-text">
+      <strong>Deduplication Strategy:</strong> Client-generated event_ids are checked against a Bloom filter 
+      (bloomd) with ~0.1% false positive rate. This handles network retries cheaply. 
+      For exact deduplication, a second-pass check in the stream processor uses Redis SET with 
+      24h TTL per event_id before writing to ClickHouse.
+    </div>
+  </div>
+
+  <h3>Kafka Topic Design</h3>
+  <table class="capacity-table">
+    <thead>
+      <tr><th>Topic</th><th>Partitions</th><th>Replication</th><th>Retention</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="highlight">raw-events</td><td>3000</td><td>3</td><td>7 days</td><td>All incoming events, partitioned by app_id</td></tr>
+      <tr><td class="highlight">enriched-events</td><td>3000</td><td>3</td><td>3 days</td><td>Geo/user enriched, deduplicated</td></tr>
+      <tr><td class="highlight">session-events</td><td>1000</td><td>3</td><td>1 day</td><td>Sessionized stream for retention calc</td></tr>
+      <tr><td class="highlight">agg-results</td><td>500</td><td>2</td><td>1 day</td><td>Pre-aggregated metrics from Flink</td></tr>
+      <tr><td class="highlight">dlq-events</td><td>200</td><td>3</td><td>30 days</td><td>Failed/malformed events for inspection</td></tr>
+      <tr><td class="highlight">notifications</td><td>200</td><td>2</td><td>12h</td><td>Alert triggers, push notification tasks</td></tr>
+    </tbody>
+  </table>
+
+  <div class="scale-section">
+    <div class="scale-title">Ingestion Capacity Planning</div>
+    <div class="scale-grid">
+      <div class="scale-item">
+        <div class="scale-key">Gateway Pods</div>
+        <div class="scale-val accent">200+</div>
+        <div class="scale-note">HPA based on CPU+RPS. Each handles ~500K req/s</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Kafka Brokers</div>
+        <div class="scale-val green">30–60</div>
+        <div class="scale-note">r6a.4xlarge, 8TB NVMe SSD each</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Throughput/broker</div>
+        <div class="scale-val orange">~3 GB/s</div>
+        <div class="scale-note">write + replication combined</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Bloom Filter Size</div>
+        <div class="scale-val">10B</div>
+        <div class="scale-note">bloomd — 24h sliding window dedup</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Avg Event Size</div>
+        <div class="scale-val accent">200B</div>
+        <div class="scale-note">compressed protobuf</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Ingest Bandwidth</div>
+        <div class="scale-val green">20 GB/s</div>
+        <div class="scale-note">100M events/s × 200B avg</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4: PROCESSING -->
+<div class="section" id="section-processing">
+  <div class="section-title">Stream Processing</div>
+  <p class="section-desc">
+    Two-tier processing: Go microservices for fast per-event transformations, Apache Flink for stateful 
+    windowed aggregations. All processors are Kafka consumer groups — independently scalable.
+  </p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-content">
+        <div class="flow-title">Enrichment Service (Go)</div>
+        <div class="flow-desc">
+          Reads from <code>raw-events</code>. Appends GeoIP lookup (MaxMind mmdb, cached in memory), 
+          User Agent parsing, app version normalization, server-side timestamp correction (client_offset = server_time - client_time), 
+          and timezone resolution. Outputs to <code>enriched-events</code>.
+        </div>
+        <span class="flow-tag">~50 pods · 2M events/sec/pod · Go concurrent consumers</span>
+      </div>
+    </div>
+
+    <div class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-content">
+        <div class="flow-title">Session Engine (Go + Redis)</div>
+        <div class="flow-desc">
+          Reads from <code>enriched-events</code>. Groups events into sessions using a 30-minute inactivity timeout. 
+          Session state stored in Redis with TTL. On session close: computes session_duration, event_count, 
+          entry/exit pages. Emits session_start and session_end synthetic events to <code>session-events</code>.
+        </div>
+        <span class="flow-tag">Redis HASH per device_id · 30m TTL sliding · partitioned by device</span>
+      </div>
+    </div>
+
+    <div class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-content">
+        <div class="flow-title">Flink Aggregation Jobs</div>
+        <div class="flow-desc">
+          Apache Flink handles time-windowed aggregations: tumbling 1-minute windows for real-time counters, 
+          sliding 1-hour windows for hourly metrics, daily windows for DAU/MAU. State stored in RocksDB 
+          (Flink state backend). Checkpoints every 30s to S3. Outputs pre-aggregated rows to ClickHouse 
+          and Redis counters.
+        </div>
+        <span class="flow-tag">Flink 1.18 · RocksDB backend · exactly-once · S3 checkpoints</span>
+      </div>
+    </div>
+
+    <div class="flow-step">
+      <div class="flow-num">4</div>
+      <div class="flow-content">
+        <div class="flow-title">Funnel Processor (Go)</div>
+        <div class="flow-desc">
+          Stateful processor that tracks funnel step completion per user within configurable time windows (e.g., "install → register → purchase within 7 days"). 
+          State persisted in Redis sorted sets (score = event_timestamp). On each step event, checks if 
+          previous steps exist within window. Writes funnel_conversion events when complete.
+        </div>
+        <span class="flow-tag">Redis ZSET per user per funnel · async state eviction</span>
+      </div>
+    </div>
+
+    <div class="flow-step">
+      <div class="flow-num">5</div>
+      <div class="flow-content">
+        <div class="flow-title">ClickHouse Writer (Go)</div>
+        <div class="flow-desc">
+          Batch consumer that accumulates events in memory and performs bulk inserts to ClickHouse 
+          every 1 second (100K-1M row batches). Uses async inserts with deduplication enabled. 
+          Partitioned by (toYYYYMMDD(event_time), app_id) for optimal query pruning.
+        </div>
+        <span class="flow-tag">Bulk insert · 1s flush · async_insert=1 · dedup_token = event_id</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Flink Job — Retention Computation</h3>
+  <div class="code-block">
+    <div class="lang-tag">JAVA · FLINK</div>
+<span class="cmt">// Day-N Retention: users who installed on day X and returned on day X+N</span>
+<span class="kw">public class</span> <span class="type">RetentionJob</span> <span class="kw">extends</span> <span class="type">RichFlatMapFunction</span>&lt;Event, RetentionResult&gt; {
+
+    <span class="kw">private</span> <span class="type">ValueState</span>&lt;<span class="type">Long</span>&gt; installTimestamp; <span class="cmt">// Flink state</span>
+
+    @Override
+    <span class="kw">public void</span> <span class="fn">flatMap</span>(<span class="type">Event</span> e, <span class="type">Collector</span>&lt;RetentionResult&gt; out) {
+        <span class="kw">if</span> (e.name.equals(<span class="str">"app_installed"</span>)) {
+            installTimestamp.<span class="fn">update</span>(e.eventTimeMs);
+            <span class="kw">return</span>;
+        }
+        <span class="type">Long</span> installTs = installTimestamp.<span class="fn">value</span>();
+        <span class="kw">if</span> (installTs == <span class="kw">null</span>) <span class="kw">return</span>;
+
+        <span class="kw">long</span> dayN = <span class="fn">daysBetween</span>(installTs, e.eventTimeMs);
+        <span class="kw">if</span> (dayN >= <span class="num">1</span> &amp;&amp; dayN &lt;= <span class="num">30</span>) {
+            out.<span class="fn">collect</span>(<span class="kw">new</span> <span class="type">RetentionResult</span>(e.userId, installTs, dayN));
+        }
+    }
+}
+<span class="cmt">// Keyed by user_id → each user's state is isolated</span>
+<span class="cmt">// Output → ClickHouse retention_events table</span>
+  </div>
+</div>
+
+<!-- SECTION 5: STORAGE -->
+<div class="section" id="section-storage">
+  <div class="section-title">Storage Architecture</div>
+  <p class="section-desc">
+    Polyglot persistence: each store is chosen for its query pattern, not convenience. 
+    Hot data is Redis. OLAP is ClickHouse. Metadata is PostgreSQL. Schema-flexible raw events are MongoDB. 
+    Cold archive is S3/GCS in Parquet.
+  </p>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">⚡</div>
+        <div>
+          <div class="card-title">ClickHouse — OLAP Core</div>
+          <div class="card-tag">PRIMARY ANALYTICS ENGINE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <strong>Why:</strong> Columnar storage with vectorized execution. Compresses 10:1. Scans 10B rows/s per node. 
+        MergeTree engine with partition pruning by date + app_id eliminates irrelevant data before scan.
+        <ul>
+          <li>Sharded by consistent hash on app_id</li>
+          <li>3 replicas per shard (ReplicatedMergeTree)</li>
+          <li>Distributed table for transparent routing</li>
+          <li>Materialized Views for pre-aggregation</li>
+          <li>TTL policies: hot (SSD) → warm (HDD) → cold (S3)</li>
+          <li>Query result cache (query_cache TTL=300s)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">🐘</div>
+        <div>
+          <div class="card-title">PostgreSQL — Metadata</div>
+          <div class="card-tag">AURORA POSTGRESQL · HA</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <strong>Why:</strong> ACID transactions for app config, user identity resolution, funnel definitions, 
+        cohort definitions, dashboard configs, billing. Read replicas for reporting queries.
+        <ul>
+          <li>Aurora PostgreSQL Multi-AZ (HA)</li>
+          <li>Read replicas for analytics metadata</li>
+          <li>PgBouncer connection pooling</li>
+          <li>Logical replication to reporting replica</li>
+          <li>Sharded by org_id for large tenants</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">🍃</div>
+        <div>
+          <div class="card-title">MongoDB — Raw Events</div>
+          <div class="card-tag">ATLAS · SHARDED CLUSTER</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <strong>Why:</strong> Schema-flexible document store for raw event storage before ClickHouse write 
+        confirms. Also stores user profiles with flexible property maps. 
+        Allows arbitrary property lookups and event schema evolution.
+        <ul>
+          <li>Sharded by (app_id, date) — range shard key</li>
+          <li>TTL indexes: raw events expire in 90 days</li>
+          <li>Atlas Search for property-based event search</li>
+          <li>Change streams for real-time triggers</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon red">🔴</div>
+        <div>
+          <div class="card-title">Redis — Hot Layer</div>
+          <div class="card-tag">CLUSTER MODE · 32+ NODES</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <strong>Why:</strong> Sub-millisecond reads/writes for real-time counters, session state, rate limiting, 
+        auth cache, query result cache. Redis Cluster with 32 shards.
+        <ul>
+          <li>Real-time event counters (INCR)</li>
+          <li>Session state (HASH + TTL)</li>
+          <li>Rate limiting (token bucket)</li>
+          <li>Auth API key cache (5min TTL)</li>
+          <li>Query result cache (L1 hot cache)</li>
+          <li>Pub/Sub for real-time dashboard updates</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow">🪣</div>
+        <div>
+          <div class="card-title">S3/GCS — Cold Archive</div>
+          <div class="card-tag">OBJECT STORE · PARQUET</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <strong>Why:</strong> Cheapest storage for historical data. ClickHouse tiered storage moves data to S3 after 30 days. 
+        Raw Kafka events archived to S3 via Kafka S3 Connector for compliance and replay.
+        <ul>
+          <li>Parquet format with Snappy compression</li>
+          <li>Partitioned by year/month/day/app_id</li>
+          <li>Athena/BigQuery for ad-hoc historical queries</li>
+          <li>Glacier Deep Archive after 1 year</li>
+          <li>Lifecycle policies for cost optimization</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">🎯</div>
+        <div>
+          <div class="card-title">Qdrant — Vector Store</div>
+          <div class="card-tag">AI FEATURES · RAG</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <strong>Why:</strong> Powers AI Insights feature — natural language queries over analytics. 
+        Dashboard configs, metric descriptions, and event schemas are embedded and indexed for semantic search.
+        <ul>
+          <li>OpenAI / Cohere embeddings</li>
+          <li>RAG pipeline for "Why did DAU drop?"</li>
+          <li>Anomaly context retrieval</li>
+          <li>Deployed on GKE with persistent volumes</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>ClickHouse Schema — Core Events Table</h3>
+  <div class="code-block">
+    <div class="lang-tag">SQL · CLICKHOUSE</div>
+<span class="kw">CREATE TABLE</span> events (
+    app_id       <span class="type">LowCardinality(String)</span>,
+    event_id     <span class="type">UUID</span>               DEFAULT <span class="fn">generateUUIDv4</span>(),
+    user_id      <span class="type">String</span>,
+    device_id    <span class="type">String</span>,
+    event_name   <span class="type">LowCardinality(String)</span>,
+    event_time   <span class="type">DateTime64(3, 'UTC')</span>,
+    session_id   <span class="type">String</span>,
+    country_code <span class="type">LowCardinality(FixedString(2))</span>,
+    platform     <span class="type">LowCardinality(String)</span>, <span class="cmt">-- android/ios/web</span>
+    app_version  <span class="type">LowCardinality(String)</span>,
+    props        <span class="type">Map(String, String)</span>,      <span class="cmt">-- flexible properties</span>
+    revenue      <span class="type">Nullable(Float64)</span>,
+    INDEX props_idx props TYPE bloom_filter(<span class="num">0.01</span>) GRANULARITY <span class="num">1</span>
+)
+<span class="kw">ENGINE</span> = ReplicatedMergeTree
+<span class="kw">PARTITION BY</span> (<span class="fn">toYYYYMMDD</span>(event_time), app_id)
+<span class="kw">ORDER BY</span> (app_id, event_name, <span class="fn">toStartOfHour</span>(event_time), user_id)
+<span class="kw">TTL</span> event_time + <span class="kw">INTERVAL</span> <span class="num">90</span> <span class="kw">DAY</span> <span class="kw">TO DISK</span> <span class="str">'s3_cold'</span>
+<span class="kw">SETTINGS</span> index_granularity = <span class="num">8192</span>;
+
+<span class="cmt">-- Materialized view for DAU pre-aggregation</span>
+<span class="kw">CREATE MATERIALIZED VIEW</span> dau_mv
+<span class="kw">ENGINE</span> = SummingMergeTree
+<span class="kw">PARTITION BY</span> toYYYYMM(event_date)
+<span class="kw">ORDER BY</span> (app_id, event_date, platform)
+<span class="kw">AS SELECT</span>
+    app_id,
+    <span class="fn">toDate</span>(event_time) <span class="kw">AS</span> event_date,
+    platform,
+    <span class="fn">uniqState</span>(user_id) <span class="kw">AS</span> dau_state
+<span class="kw">FROM</span> events <span class="kw">GROUP BY</span> app_id, event_date, platform;
+  </div>
+</div>
+
+<!-- SECTION 6: EVENTS & KPIs -->
+<div class="section" id="section-events">
+  <div class="section-title">Event Taxonomy & KPIs</div>
+  <p class="section-desc">
+    Standardized event catalog with system events (auto-tracked by SDK) and custom events (developer-defined). 
+    Each event has mandatory base fields + optional typed properties.
+  </p>
+
+  <h3>System Events (Auto-tracked)</h3>
+  <div class="events-section">
+    <div class="event-row">
+      <div class="event-name">app_installed</div>
+      <div class="event-desc">Fired once on first launch after install. Attribution window tracking. Used for install attribution, source tracking, and cohort creation. The foundational event for all retention and funnel analyses.</div>
+      <div class="event-attrs">install_source, campaign_id,<br>adset_id, referrer, os_version,<br>device_model, country_code,<br>is_organic, deeplink_url</div>
+    </div>
+    <div class="event-row">
+      <div class="event-name">app_uninstalled</div>
+      <div class="event-desc">Detected via push notification delivery failure (uninstall tracker). Cannot fire from app directly. Inferred via silent push probe pattern within 24-48h window. Used for churn analysis.</div>
+      <div class="event-attrs">days_since_install,<br>last_session_date,<br>total_sessions,<br>total_revenue</div>
+    </div>
+    <div class="event-row">
+      <div class="event-name">app_opened</div>
+      <div class="event-desc">Every foreground activation. Core event for DAU/WAU/MAU computation. Also used for session start detection and re-engagement tracking.</div>
+      <div class="event-attrs">source (push/organic/deeplink),<br>notification_id, session_number,<br>days_since_last_open</div>
+    </div>
+    <div class="event-row">
+      <div class="event-name">session_start / session_end</div>
+      <div class="event-desc">Synthetic events generated by Session Engine in stream processor. A session is defined as contiguous activity with &lt;30min inactivity gap.</div>
+      <div class="event-attrs">session_id, session_duration_s,<br>event_count, screens_visited,<br>exit_reason (background/crash)</div>
+    </div>
+    <div class="event-row">
+      <div class="event-name">screen_view / page_view</div>
+      <div class="event-desc">Auto-tracked navigation events. Enables user flow analysis, drop-off detection, and content engagement metrics.</div>
+      <div class="event-attrs">screen_name, previous_screen,<br>time_on_screen_ms,<br>scroll_depth_pct</div>
+    </div>
+    <div class="event-row">
+      <div class="event-name">user_updated</div>
+      <div class="event-desc">Profile attribute changes (identify calls). Updates user properties in MongoDB user profiles. Used for segmentation and cohort membership evaluation.</div>
+      <div class="event-attrs">changed_properties[],<br>previous_values{},<br>new_values{}</div>
+    </div>
+    <div class="event-row">
+      <div class="event-name">push_delivered / push_clicked</div>
+      <div class="event-desc">SDK-reported push notification lifecycle. Used to measure notification CTR, reachability, and uninstall detection via silent push.</div>
+      <div class="event-attrs">notification_id, campaign_id,<br>channel, action_button_id,<br>delivery_latency_ms</div>
+    </div>
+  </div>
+
+  <h3>Key Performance Metrics Computation</h3>
+  <table class="tech-table">
+    <thead>
+      <tr><th>KPI</th><th>Definition</th><th>Storage</th><th>Latency</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="tech-name">DAU / WAU / MAU</span></td>
+        <td>Unique user_ids per day/week/month per app_id using HyperLogLog (ClickHouse uniqHLL12)</td>
+        <td><span class="badge green">ClickHouse MV</span></td>
+        <td>Real-time, 1m lag</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">Day-N Retention</span></td>
+        <td>% of users who installed on day 0 and returned on day N (N=1,3,7,14,30). Computed by Flink keyed by user_id, state = install_date</td>
+        <td><span class="badge blue">ClickHouse</span></td>
+        <td>1h lag</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">Funnel Conversion</span></td>
+        <td>Step-by-step conversion rates within time window. Funnel Processor tracks ordered steps per user in Redis. Final conversion written to ClickHouse.</td>
+        <td><span class="badge blue">ClickHouse</span></td>
+        <td>Near real-time</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">Churn Rate</span></td>
+        <td>% of users active in period T but not in T+1. Computed in Flink using two sliding windows, joined on user_id absence.</td>
+        <td><span class="badge blue">ClickHouse</span></td>
+        <td>Daily batch</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">Stickiness (DAU/MAU)</span></td>
+        <td>DAU divided by MAU — measures habitual usage. Redis real-time counters + ClickHouse for historical trends.</td>
+        <td><span class="badge red">Redis + CH</span></td>
+        <td>Real-time</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">ARPU / LTV</span></td>
+        <td>Revenue events summed per user. LTV projected via cohort revenue curves. revenue property on purchase events.</td>
+        <td><span class="badge blue">ClickHouse</span></td>
+        <td>5m lag</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">Session Metrics</span></td>
+        <td>Avg session duration, sessions/user/day, screen depth. Computed by Session Engine on session_end events.</td>
+        <td><span class="badge blue">ClickHouse</span></td>
+        <td>Near real-time</td>
+      </tr>
+      <tr>
+        <td><span class="tech-name">Crash Rate</span></td>
+        <td>app_crashed events / total sessions. SDK auto-captures uncaught exceptions with stack trace hash.</td>
+        <td><span class="badge blue">ClickHouse</span></td>
+        <td>Real-time</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 7: SERVING -->
+<div class="section" id="section-serving">
+  <div class="section-title">Query Serving Layer</div>
+  <p class="section-desc">
+    Multi-tier query serving with intelligent caching, async execution for heavy reports, 
+    and a dedicated AI-powered natural language query interface.
+  </p>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">🔌</div>
+        <div>
+          <div class="card-title">Query API Service</div>
+          <div class="card-tag">GO · GRPC + REST</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Stateless Go service. Receives query requests, translates to ClickHouse SQL, checks cache, and routes to appropriate backend.
+        <ul>
+          <li>gRPC for internal microservices</li>
+          <li>REST/JSON for external API consumers</li>
+          <li>GraphQL for dashboard BFF layer</li>
+          <li>OpenAPI spec + SDK generation</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon red">⚡</div>
+        <div>
+          <div class="card-title">Caching Strategy</div>
+          <div class="card-tag">3-TIER CACHE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        L1: In-process Go cache (ristretto, 1GB). L2: Redis cluster (5min TTL, shared). L3: ClickHouse query_cache (server-side, 300s TTL). Cache key = SHA256(normalized_sql + tenant_id).
+        <ul>
+          <li>L1 hit rate target: 40%</li>
+          <li>L2 hit rate target: 70%</li>
+          <li>Cache warming on dashboard load</li>
+          <li>Invalidation on new data checkpoint</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">📊</div>
+        <div>
+          <div class="card-title">Async Query Engine</div>
+          <div class="card-tag">HEAVY REPORTS</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Heavy queries (cohort analysis, LTV projections, custom SQL) are executed asynchronously. 
+        Results stored in S3, URL returned. WebSocket notification when complete.
+        <ul>
+          <li>Job queue in PostgreSQL</li>
+          <li>Result stored to S3 as CSV/JSON</li>
+          <li>Pre-signed S3 URL for download</li>
+          <li>Max 5 concurrent heavy queries/tenant</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">🤖</div>
+        <div>
+          <div class="card-title">AI Insights (RAG)</div>
+          <div class="card-tag">QDRANT · LLM</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Natural language → ClickHouse SQL. User asks "Why did retention drop last week?" — system retrieves relevant metric context from Qdrant, constructs prompt, LLM generates SQL + explanation.
+        <ul>
+          <li>Event schema embedded in Qdrant</li>
+          <li>Few-shot SQL generation prompts</li>
+          <li>SQL validation before execution</li>
+          <li>Anomaly context auto-retrieved</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>Multi-Tenancy & Isolation</h3>
+  <div class="callout info">
+    <div class="callout-icon">🏢</div>
+    <div class="callout-text">
+      <strong>Tenant Isolation Model:</strong> app_id is always included in every ClickHouse query predicate 
+      (enforced at the query API layer — no escape). ClickHouse row-level policies restrict access. 
+      Each tenant gets a resource quota enforced by the Query API: max concurrent queries, max scan bytes/hour, max result rows.
+    </div>
+  </div>
+
+  <h3>Sample Analytics Query — Funnel</h3>
+  <div class="code-block">
+    <div class="lang-tag">SQL · CLICKHOUSE</div>
+<span class="cmt">-- 3-step funnel: Install → Register → Purchase, within 7 days</span>
+<span class="kw">SELECT</span>
+    <span class="fn">windowFunnel</span>(<span class="num">7</span> * <span class="num">86400</span>)(<span class="fn">toUnixTimestamp</span>(event_time),
+        event_name = <span class="str">'app_installed'</span>,
+        event_name = <span class="str">'user_registered'</span>,
+        event_name = <span class="str">'purchase_completed'</span>
+    ) <span class="kw">AS</span> level,
+    <span class="fn">count</span>() <span class="kw">AS</span> users
+<span class="kw">FROM</span> events
+<span class="kw">WHERE</span>
+    app_id = <span class="str">'your_app_id'</span>
+    <span class="kw">AND</span> event_time <span class="kw">BETWEEN</span> <span class="str">'2024-01-01'</span> <span class="kw">AND</span> <span class="str">'2024-01-31'</span>
+    <span class="kw">AND</span> event_name <span class="kw">IN</span> (<span class="str">'app_installed'</span>, <span class="str">'user_registered'</span>, <span class="str">'purchase_completed'</span>)
+<span class="kw">GROUP BY</span> user_id
+<span class="kw">ORDER BY</span> level <span class="kw">DESC</span>;
+<span class="cmt">-- Runs in &lt;200ms on 10B rows with proper partition pruning + PREWHERE</span>
+  </div>
+</div>
+
+<!-- SECTION 8: SCALE MATH -->
+<div class="section" id="section-scale">
+  <div class="section-title">Scale Math & Capacity</div>
+  <p class="section-desc">
+    How does 100M events/sec actually translate to hardware? Let's do the math end-to-end, 
+    from network bytes to disk bytes to query speed.
+  </p>
+
+  <div class="scale-section">
+    <div class="scale-title">Event Volume Math</div>
+    <div class="scale-grid">
+      <div class="scale-item">
+        <div class="scale-key">Events / second</div>
+        <div class="scale-val accent">100,000,000</div>
+        <div class="scale-note">Target peak throughput</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Avg compressed size</div>
+        <div class="scale-val green">200 bytes</div>
+        <div class="scale-note">Protobuf + gzip per event</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Raw ingest bandwidth</div>
+        <div class="scale-val orange">20 GB/s</div>
+        <div class="scale-note">100M × 200B = 20 GB/s</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Events / day</div>
+        <div class="scale-val accent">8.64 Trillion</div>
+        <div class="scale-note">100M × 86,400s</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Raw data / day</div>
+        <div class="scale-val green">1.7 PB/day</div>
+        <div class="scale-note">pre-compression</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">ClickHouse compressed</div>
+        <div class="scale-val orange">~170 TB/day</div>
+        <div class="scale-note">~10:1 column compression</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scale-section">
+    <div class="scale-title">Kafka Cluster Sizing</div>
+    <div class="scale-grid">
+      <div class="scale-item">
+        <div class="scale-key">Write throughput</div>
+        <div class="scale-val accent">20 GB/s</div>
+        <div class="scale-note">ingest bandwidth</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Replication factor 3×</div>
+        <div class="scale-val green">60 GB/s</div>
+        <div class="scale-note">total broker I/O</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Throughput/broker</div>
+        <div class="scale-val orange">2-3 GB/s</div>
+        <div class="scale-note">r6a.4xlarge with NVMe</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Brokers required</div>
+        <div class="scale-val accent">20–30</div>
+        <div class="scale-note">with 2× headroom: 40–60</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Partitions</div>
+        <div class="scale-val green">3000</div>
+        <div class="scale-note">~50 partitions/broker avg</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Retention storage</div>
+        <div class="scale-val orange">~70 TB</div>
+        <div class="scale-note">7 days × ~10 TB/day replicated</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scale-section">
+    <div class="scale-title">ClickHouse Cluster Sizing</div>
+    <div class="scale-grid">
+      <div class="scale-item">
+        <div class="scale-key">Ingestion rate</div>
+        <div class="scale-val accent">100M rows/s</div>
+        <div class="scale-note">async inserts, bulk mode</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">ClickHouse node write</div>
+        <div class="scale-val green">5M rows/s</div>
+        <div class="scale-note">per c6a.8xlarge node</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Nodes for ingest</div>
+        <div class="scale-val orange">20+ shards</div>
+        <div class="scale-note">3 replicas each = 60+ nodes</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Query scan speed</div>
+        <div class="scale-val accent">10B rows/s</div>
+        <div class="scale-note">per node (vectorized)</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Storage / 90 days</div>
+        <div class="scale-val green">~15 PB</div>
+        <div class="scale-note">compressed, tiered to S3</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Hot tier (SSD)</div>
+        <div class="scale-val orange">~1 PB</div>
+        <div class="scale-note">last 7 days in memory/SSD</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scale-section">
+    <div class="scale-title">Ingest Gateway Sizing</div>
+    <div class="scale-grid">
+      <div class="scale-item">
+        <div class="scale-key">Requests/sec</div>
+        <div class="scale-val accent">2M req/s</div>
+        <div class="scale-note">100M events / 50 events/batch</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">RPS per Go pod</div>
+        <div class="scale-val green">10K req/s</div>
+        <div class="scale-note">4 vCPU, 8GB RAM pod</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Pods required</div>
+        <div class="scale-val orange">200–400</div>
+        <div class="scale-note">HPA min/max, 2× headroom</div>
+      </div>
+      <div class="scale-item">
+        <div class="scale-key">Cost/month (EC2)</div>
+        <div class="scale-val accent">~$50K</div>
+        <div class="scale-note">gateway tier alone, on-demand</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-text">
+      <strong>Scaling to 100M events/s is achieved by horizontal scaling at every tier:</strong>
+      Gateway pods scale via HPA → Kafka partitions are pre-allocated → Stream processor consumer groups scale with partition count → ClickHouse shards distribute write load → 
+      Redis cluster scales by adding nodes. No single component is a bottleneck because each tier consumes from the previous tier's durable queue (Kafka).
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 9: INFRA -->
+<div class="section" id="section-infra">
+  <div class="section-title">Infrastructure & CI/CD</div>
+  <p class="section-desc">
+    Kubernetes-native on GKE/EKS. Infrastructure as code with Tanka + Jsonnet. 
+    GitOps with ArgoCD. Full observability with Prometheus + Grafana + OpenTelemetry.
+  </p>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">☸️</div>
+        <div>
+          <div class="card-title">Kubernetes (GKE)</div>
+          <div class="card-tag">CONTAINER ORCHESTRATION</div>
+        </div>
+      </div>
+      <div class="card-body">
+        GKE Autopilot for stateless services (gateway, processors). GKE Standard for stateful (Kafka, ClickHouse, Redis). Node auto-provisioning with workload-optimized machine families.
+        <ul>
+          <li>Separate node pools per workload type</li>
+          <li>Spot/Preemptible for batch processors</li>
+          <li>PodDisruptionBudgets for zero-downtime</li>
+          <li>KEDA for Kafka consumer autoscaling</li>
+          <li>Vertical Pod Autoscaler for right-sizing</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">🔧</div>
+        <div>
+          <div class="card-title">Tanka + Jsonnet</div>
+          <div class="card-tag">INFRA AS CODE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        All K8s manifests defined in Jsonnet using Tanka. Environments (dev/staging/prod) share a single config with environment-specific overrides. Grafana Tanka for deployment.
+        <ul>
+          <li>DRY config with Jsonnet functions</li>
+          <li>Environment overlays (dev/staging/prod)</li>
+          <li>Secret management via Sealed Secrets</li>
+          <li>Diff preview before apply</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">🚀</div>
+        <div>
+          <div class="card-title">CI/CD Pipeline</div>
+          <div class="card-tag">GITHUB ACTIONS · ARGOCD</div>
+        </div>
+      </div>
+      <div class="card-body">
+        GitHub Actions for build/test/push. ArgoCD for GitOps deployment. Image built, scanned (Trivy), pushed to ECR, then GitOps repo updated to trigger ArgoCD sync.
+        <ul>
+          <li>PR → lint + test + build → Docker image</li>
+          <li>Trivy vulnerability scan (block on CRITICAL)</li>
+          <li>Push to ECR with immutable tags</li>
+          <li>ArgoCD auto-sync on main branch</li>
+          <li>Canary deployments via Argo Rollouts</li>
+          <li>Automated rollback on error rate spike</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">📈</div>
+        <div>
+          <div class="card-title">Prometheus + Grafana</div>
+          <div class="card-tag">OBSERVABILITY</div>
+        </div>
+      </div>
+      <div class="card-body">
+        Prometheus federation with Thanos for long-term storage. Pre-built Grafana dashboards for every service. Alertmanager → PagerDuty for on-call.
+        <ul>
+          <li>Thanos for HA + long-term metrics</li>
+          <li>Custom dashboards per microservice</li>
+          <li>SLO tracking (error budget dashboards)</li>
+          <li>Kafka lag alerting per consumer group</li>
+          <li>ClickHouse query latency P50/P95/P99</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon cyan">🔭</div>
+        <div>
+          <div class="card-title">OpenTelemetry</div>
+          <div class="card-tag">DISTRIBUTED TRACING</div>
+        </div>
+      </div>
+      <div class="card-body">
+        OTEL SDK in all Go services. OTEL Collector as sidecar/DaemonSet. Traces exported to Jaeger (hot) and S3 (cold). Trace sampling at 1% for normal, 100% for errors.
+        <ul>
+          <li>Auto-instrumentation for gRPC/HTTP</li>
+          <li>Custom spans for Kafka produce/consume</li>
+          <li>Trace correlation in logs (trace_id field)</li>
+          <li>Tail-based sampling for error traces</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow">🔒</div>
+        <div>
+          <div class="card-title">Security</div>
+          <div class="card-tag">ZERO-TRUST</div>
+        </div>
+      </div>
+      <div class="card-body">
+        mTLS between all internal services via Istio service mesh. Network policies isolate namespaces. Secrets via HashiCorp Vault. RBAC with least-privilege everywhere.
+        <ul>
+          <li>Istio service mesh with mTLS</li>
+          <li>HashiCorp Vault for secrets rotation</li>
+          <li>OPA/Gatekeeper for policy enforcement</li>
+          <li>Falco for runtime threat detection</li>
+          <li>WAF on ingress (AWS WAF / Cloudflare)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>GitHub Actions CI Pipeline</h3>
+  <div class="code-block">
+    <div class="lang-tag">YAML · GITHUB ACTIONS</div>
+<span class="kw">name:</span> <span class="str">Build & Deploy</span>
+<span class="kw">on:</span> <span class="type">push</span>: <span class="kw">branches:</span> [<span class="str">main</span>, <span class="str">staging</span>]
+
+<span class="kw">jobs:</span>
+  <span class="type">build:</span>
+    <span class="kw">steps:</span>
+      - <span class="fn">golangci-lint</span> <span class="cmt"># lint check</span>
+      - <span class="fn">go test ./...</span> -race -coverprofile=coverage.out
+      - <span class="fn">docker build</span> -t $ECR_REPO:${{ github.sha }} .
+      - <span class="fn">trivy image</span> --exit-code 1 --severity CRITICAL $IMAGE
+      - <span class="fn">docker push</span> $ECR_REPO:${{ github.sha }}
+
+  <span class="type">deploy:</span>
+    <span class="kw">needs:</span> build
+    <span class="kw">steps:</span>
+      <span class="cmt"># Update image tag in GitOps repo → ArgoCD auto-syncs</span>
+      - <span class="fn">yq e</span> <span class="str">'.image.tag = env(NEW_TAG)'</span> -i gitops/values.yaml
+      - <span class="fn">git commit</span> &amp;&amp; git push gitops-repo
+      <span class="cmt"># ArgoCD watches gitops-repo, applies diff to K8s</span>
+      <span class="cmt"># Argo Rollouts does canary: 10% → 25% → 50% → 100%</span>
+      <span class="cmt"># Auto-rollback if error_rate > 1% or latency p95 > 500ms</span>
+  </div>
+</div>
+
+<!-- SECTION 10: FEATURES -->
+<div class="section" id="section-features">
+  <div class="section-title">Platform Features</div>
+  <p class="section-desc">
+    Complete feature set inspired by Amplitude, MoEngage, and Mixpanel — 
+    covering analytics, engagement, messaging, and AI-powered insights.
+  </p>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon blue">📊</div>
+        <div>
+          <div class="card-title">Core Analytics</div>
+          <div class="card-tag">AMPLITUDE-INSPIRED</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Event Explorer — drill into any event with any property breakdown</li>
+          <li>Funnel Analysis — multi-step conversion with breakdown dimensions</li>
+          <li>Retention Analysis — N-day and custom interval retention heatmaps</li>
+          <li>User Flows — Sankey diagrams of navigation paths</li>
+          <li>Revenue Analytics — ARPU, LTV, revenue cohorts</li>
+          <li>Crash Analytics — symbolicated stack traces, affected users</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon orange">👥</div>
+        <div>
+          <div class="card-title">User Segmentation</div>
+          <div class="card-tag">REAL-TIME COHORTS</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Behavioral cohorts — users who did X within Y days</li>
+          <li>Property cohorts — device type, country, app version</li>
+          <li>Predictive cohorts — ML-based churn probability scores</li>
+          <li>Dynamic cohort membership — re-evaluated hourly</li>
+          <li>Cohort export to push/email/webhook targets</li>
+          <li>A/B test audience management</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon green">📣</div>
+        <div>
+          <div class="card-title">Engagement (MoEngage-style)</div>
+          <div class="card-tag">MULTI-CHANNEL</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Push notifications — FCM/APNs with rich media</li>
+          <li>In-app messages — modal, banner, bottom sheet</li>
+          <li>Email campaigns — template builder + delivery tracking</li>
+          <li>SMS / WhatsApp via Twilio integration</li>
+          <li>Journey builder — multi-step automated workflows</li>
+          <li>Frequency capping + DND windows</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon purple">🤖</div>
+        <div>
+          <div class="card-title">AI / ML Features</div>
+          <div class="card-tag">BUILT-IN INTELLIGENCE</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Anomaly Detection — Z-score + LSTM on key metrics</li>
+          <li>Churn Prediction — gradient boosted trees per cohort</li>
+          <li>Natural Language Queries — LLM → ClickHouse SQL (RAG)</li>
+          <li>Smart Insights — auto-generated metric explanations</li>
+          <li>Optimal Send Time prediction per user</li>
+          <li>Auto-segmentation via clustering algorithms</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon yellow">🧪</div>
+        <div>
+          <div class="card-title">A/B Testing</div>
+          <div class="card-tag">EXPERIMENTATION</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>SDK-side feature flag evaluation (zero latency)</li>
+          <li>Statistical significance calculator (Bayesian)</li>
+          <li>Multi-variate experiment support</li>
+          <li>Holdout groups for long-term measurement</li>
+          <li>Metric guardrails — auto-stop on degradation</li>
+          <li>Remote config for server-controlled parameters</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon cyan">🔗</div>
+        <div>
+          <div class="card-title">Integrations & APIs</div>
+          <div class="card-tag">ECOSYSTEM</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Data Export — S3/GCS raw event export (Parquet)</li>
+          <li>Data Warehouse Sync — Snowflake, BigQuery, Redshift</li>
+          <li>Reverse ETL — push cohorts back to Salesforce, HubSpot</li>
+          <li>Webhooks — real-time event forwarding</li>
+          <li>REST + GraphQL public API</li>
+          <li>Zapier / Make.com connectors</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>Complete Technology Stack</h3>
+  <table class="tech-table">
+    <thead>
+      <tr><th>Layer</th><th>Technology</th><th>Role</th><th>Why chosen</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Language</td><td><span class="tech-name">Go 1.22</span></td><td><span class="badge green">Primary</span></td><td>Low latency, high concurrency, small containers, goroutines for I/O</td></tr>
+      <tr><td>Streaming</td><td><span class="tech-name">Apache Kafka</span></td><td><span class="badge orange">Event bus</span></td><td>Durable, partitioned, horizontally scalable backbone</td></tr>
+      <tr><td>Stream Processing</td><td><span class="tech-name">Apache Flink</span></td><td><span class="badge purple">Aggregations</span></td><td>Stateful windowed ops, exactly-once, checkpointing</td></tr>
+      <tr><td>OLAP</td><td><span class="tech-name">ClickHouse</span></td><td><span class="badge blue">Analytics</span></td><td>Columnar, vectorized, 10B rows/s/node scan speed</td></tr>
+      <tr><td>Metadata DB</td><td><span class="tech-name">PostgreSQL (Aurora)</span></td><td><span class="badge green">OLTP</span></td><td>ACID, relational, battle-tested, RDS managed</td></tr>
+      <tr><td>Document DB</td><td><span class="tech-name">MongoDB Atlas</span></td><td><span class="badge yellow">Flexible schema</span></td><td>Schema-free event properties, user profiles</td></tr>
+      <tr><td>Cache</td><td><span class="tech-name">Redis Cluster</span></td><td><span class="badge red">Hot layer</span></td><td>Sub-ms reads, counters, sessions, pub/sub</td></tr>
+      <tr><td>Dedup</td><td><span class="tech-name">bloomd</span></td><td><span class="badge blue">Filter</span></td><td>Probabilistic dedup at ingestion — O(1) memory</td></tr>
+      <tr><td>Object Storage</td><td><span class="tech-name">S3 / GCS</span></td><td><span class="badge yellow">Cold/archive</span></td><td>Cheap, durable, ClickHouse tiered storage target</td></tr>
+      <tr><td>Vector DB</td><td><span class="tech-name">Qdrant</span></td><td><span class="badge purple">AI search</span></td><td>High-perf vector search for RAG pipeline</td></tr>
+      <tr><td>Orchestration</td><td><span class="tech-name">Kubernetes (GKE)</span></td><td><span class="badge blue">Platform</span></td><td>Container scheduling, autoscaling, self-healing</td></tr>
+      <tr><td>Container</td><td><span class="tech-name">Docker</span></td><td><span class="badge green">Build</span></td><td>Reproducible builds, multi-stage for small images</td></tr>
+      <tr><td>IaC</td><td><span class="tech-name">Tanka + Jsonnet</span></td><td><span class="badge orange">Config</span></td><td>DRY K8s config, Grafana's own tooling</td></tr>
+      <tr><td>GitOps</td><td><span class="tech-name">ArgoCD</span></td><td><span class="badge purple">Deploy</span></td><td>Git as source of truth, automatic reconciliation</td></tr>
+      <tr><td>CI</td><td><span class="tech-name">GitHub Actions</span></td><td><span class="badge blue">Build/test</span></td><td>Tight GitHub integration, marketplace ecosystem</td></tr>
+      <tr><td>Metrics</td><td><span class="tech-name">Prometheus + Thanos</span></td><td><span class="badge green">Observability</span></td><td>HA metrics with long-term storage</td></tr>
+      <tr><td>Dashboards</td><td><span class="tech-name">Grafana</span></td><td><span class="badge yellow">Visualization</span></td><td>Best-in-class dashboarding, alert rules</td></tr>
+      <tr><td>Tracing</td><td><span class="tech-name">OpenTelemetry + Jaeger</span></td><td><span class="badge orange">Traces</span></td><td>Vendor-neutral, distributed trace correlation</td></tr>
+      <tr><td>Logging</td><td><span class="tech-name">Loki + Promtail</span></td><td><span class="badge blue">Logs</span></td><td>Grafana stack, label-based, cheap storage</td></tr>
+      <tr><td>Service Mesh</td><td><span class="tech-name">Istio</span></td><td><span class="badge purple">Security</span></td><td>mTLS, traffic management, canary routing</td></tr>
+      <tr><td>Secrets</td><td><span class="tech-name">HashiCorp Vault</span></td><td><span class="badge red">Security</span></td><td>Dynamic secrets, rotation, audit trail</td></tr>
+      <tr><td>Cloud</td><td><span class="tech-name">AWS / GCP</span></td><td><span class="badge blue">Multi-cloud</span></td><td>AWS primary (EKS, RDS, S3, CloudFront), GCP for GKE+BigQuery</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo({ top: document.querySelector('.nav').offsetTop, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>
